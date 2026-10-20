@@ -1,6 +1,11 @@
 import { emptyForField } from './pluginConfigForm.ts';
 import type { Plugin } from '../services/api';
 
+/** The first-party OTP integration uses a native dashboard editor once its message schema is present. */
+export function hasNativeOtpEditor(plugin: Pick<Plugin, 'id' | 'configSchema'>): boolean {
+  return plugin.id === 'supabase-otp-hook' && !!plugin.configSchema?.properties.messageMode;
+}
+
 /**
  * Config rules for the Plugins page, all three of which decide what leaves the browser.
  *

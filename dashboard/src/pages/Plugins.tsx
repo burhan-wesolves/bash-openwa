@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { localizePlugin } from '../utils/localizePlugin';
-import { configUiSafeConfig, missingRequiredConfig, sparseSessionOverride } from '../utils/pluginConfigRules';
+import {
+  configUiSafeConfig,
+  missingRequiredConfig,
+  sparseSessionOverride,
+  hasNativeOtpEditor,
+} from '../utils/pluginConfigRules';
 import { coerceFieldInput, emptyForField, fillClearedFields } from '../utils/pluginConfigForm';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -36,6 +41,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import { useToast } from '../hooks/useToast';
 import { PluginInstances } from '../components/PluginInstances';
+import { SupabaseOtpEditor } from '../components/SupabaseOtpEditor';
 import './Plugins.css';
 
 type PluginType = 'engine' | 'storage' | 'queue' | 'auth' | 'extension';
@@ -555,7 +561,9 @@ function SessionsTab({ plugin }: { plugin: Plugin }) {
               </option>
             ))}
           </select>
-          {selSession && hasUi ? (
+          {selSession && hasNativeOtpEditor(plugin) ? (
+            <SupabaseOtpEditor key={`${plugin.id}:${selSession}`} plugin={plugin} sessionId={selSession} />
+          ) : selSession && hasUi ? (
             <PluginConfigUi key={selSession} plugin={plugin} sessionId={selSession} />
           ) : selSession && hasSchema ? (
             <>
@@ -1268,7 +1276,7 @@ export default function Plugins() {
               open
               onClose={() => setShowConfigModal(false)}
               title={t('plugins.config.title', { name: lz.name })}
-              className="config-modal"
+              className={hasNativeOtpEditor(configPlugin) ? 'config-modal otp-config-modal' : 'config-modal'}
               closeLabel={t('common.close')}
               subheader={
                 showTabs ? (
@@ -1307,7 +1315,9 @@ export default function Plugins() {
                       only. A plugin with its own editor saves through that editor, so the footer Save is
                       omitted rather than left to save a form the operator cannot see. */}
                   {(showTabs && (configTab === 'sessions' || configTab === 'instances')) ||
-                  configPlugin.configUi ? null : Object.keys(lz.configSchema?.properties ?? {}).length > 0 ? (
+                  configPlugin.configUi ||
+                  hasNativeOtpEditor(configPlugin) ? null : Object.keys(lz.configSchema?.properties ?? {}).length >
+                    0 ? (
                     <button className="btn-primary" onClick={handleSaveSchemaConfig} disabled={savingConfig}>
                       {savingConfig ? <Loader2 size={16} className="animate-spin" /> : t('plugins.config.save')}
                     </button>
@@ -1322,7 +1332,9 @@ export default function Plugins() {
               ) : /* A plugin that ships its own editor owns the whole config: rendering the generic
                      form underneath it too produced a second copy of every field and a second Save
                      button with different semantics, which is what the Chat Flow modal looked like. */
-              configPlugin.configUi ? (
+              hasNativeOtpEditor(configPlugin) ? (
+                <SupabaseOtpEditor key={configPlugin.id} plugin={configPlugin} />
+              ) : configPlugin.configUi ? (
                 <PluginConfigUi plugin={configPlugin} />
               ) : lz.configSchema && Object.keys(lz.configSchema.properties ?? {}).length > 0 ? (
                 <form ref={schemaFormRef} className="config-form" onSubmit={e => e.preventDefault()}>

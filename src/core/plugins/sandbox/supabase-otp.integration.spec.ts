@@ -1,5 +1,7 @@
 import * as path from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { transpileModule, ModuleKind, ScriptTarget } from 'typescript';
 import AdmZip from 'adm-zip';
 import { WorkerThreadChannel } from './worker-thread-channel';
 import { PluginWorkerHost } from './plugin-worker-host';
@@ -7,23 +9,32 @@ import { parsePluginPackage } from '../../../modules/plugins/plugin-installer';
 
 const ROOT = path.resolve(__dirname, '../../../..');
 const SOURCE = path.join(ROOT, 'integrations/supabase-otp-hook');
+function packageFiles(): Map<string, Buffer> {
+  const files = new Map(
+    ['manifest.json', 'index.js', 'README.md'].map(file => [file, readFileSync(path.join(SOURCE, file))]),
+  );
+  files.set(
+    'message-config.js',
+    Buffer.from(
+      transpileModule(readFileSync(path.join(ROOT, 'shared/supabase-otp-message.mjs'), 'utf8'), {
+        fileName: 'message-config.js',
+        compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022, allowJs: true },
+      }).outputText,
+    ),
+  );
+  return files;
+}
 
 describe('bundled Supabase OTP plugin', () => {
   jest.setTimeout(30000);
 
-  it('is accepted as an installable plugin package with a self-contained editor', () => {
+  it('is accepted as an installable plugin package with a native dashboard schema', () => {
     const zip = new AdmZip();
-    for (const file of ['manifest.json', 'index.js', 'message-config.js', 'README.md']) {
-      zip.addFile(file, readFileSync(path.join(SOURCE, file)));
-    }
-    const html = readFileSync(path.join(SOURCE, 'config-ui.html'), 'utf8').replace('/*__OTP_MESSAGE_CONFIG__*/', () =>
-      readFileSync(path.join(SOURCE, 'message-config.js'), 'utf8'),
-    );
-    zip.addFile('config-ui.html', Buffer.from(html));
+    for (const [file, content] of packageFiles()) zip.addFile(file, content);
     const parsed = parsePluginPackage(zip.toBuffer());
     expect(parsed.manifest.id).toBe('supabase-otp-hook');
-    expect(parsed.manifest.configUi?.entry).toBe('config-ui.html');
-    expect(html).not.toContain('/*__OTP_MESSAGE_CONFIG__*/');
+    expect(parsed.manifest.configUi).toBeUndefined();
+    expect(parsed.manifest.configSchema?.properties.messageMode.enum).toContain('cta_reply');
   });
 
   it('delivers CTA + Reply through a real worker capability round-trip, retaining per-instance config', async () => {
@@ -42,8 +53,13 @@ describe('bundled Supabase OTP plugin', () => {
       },
     });
     const host = new PluginWorkerHost(channel, dispatcher);
+    const packageDir = mkdtempSync(path.join(tmpdir(), 'owa-otp-package-'));
     try {
-      await host.load(path.join(SOURCE, 'index.js'), { pluginId: 'supabase-otp-hook', config: { appName: 'Base' } });
+      for (const [file, content] of packageFiles()) writeFileSync(path.join(packageDir, file), content);
+      await host.load(path.join(packageDir, 'index.js'), {
+        pluginId: 'supabase-otp-hook',
+        config: { appName: 'Base' },
+      });
       await host.runLifecycle('onEnable');
       const payload = JSON.stringify({ user: { phone: '+919999999999' }, sms: { otp: '123456' } });
       const request = {
@@ -77,6 +93,7 @@ describe('bundled Supabase OTP plugin', () => {
       expect(dispatcher).not.toHaveBeenCalled();
     } finally {
       await host.terminate();
+      rmSync(packageDir, { recursive: true, force: true });
     }
   });
 });

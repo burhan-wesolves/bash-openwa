@@ -6,7 +6,7 @@ import { PluginManifest, validateIngressManifest } from './plugin.interfaces';
 import { pluginUpdateBackupDirName, pluginUpdateStagingDirName } from './plugin-paths';
 
 const ID = 'supabase-otp-hook';
-const FILES = ['manifest.json', 'index.js', 'message-config.js', 'config-ui.html', 'README.md'];
+const FILES = ['manifest.json', 'index.js', 'message-config.js', 'README.md'];
 
 /**
  * Install the fork's versioned OTP package before the runtime scan. Only code is replaced: the
@@ -18,7 +18,7 @@ export function installBundledOtpPlugin(bundlesDir: string, pluginsDir: string):
   const source = path.join(bundlesDir, ID);
   if (!fs.existsSync(path.join(source, 'manifest.json'))) return null;
   const manifest = JSON.parse(fs.readFileSync(path.join(source, 'manifest.json'), 'utf8')) as PluginManifest;
-  if (manifest.id !== ID || manifest.main !== 'index.js' || manifest.configUi?.entry !== 'config-ui.html') {
+  if (manifest.id !== ID || manifest.main !== 'index.js' || manifest.configUi) {
     throw new Error('Invalid bundled OTP package');
   }
   validatePluginManifest(manifest);
@@ -28,9 +28,6 @@ export function installBundledOtpPlugin(bundlesDir: string, pluginsDir: string):
     const filename = path.join(source, file);
     if (!fs.lstatSync(filename).isFile()) throw new Error(`Bundled OTP file missing: ${file}`);
     content.set(file, fs.readFileSync(filename));
-  }
-  if (content.get('config-ui.html')!.includes('/*__OTP_MESSAGE_CONFIG__*/')) {
-    throw new Error('Bundled OTP editor has not been built');
   }
 
   fs.mkdirSync(pluginsDir, { recursive: true });

@@ -1,0 +1,154 @@
+.otp-editor {
+  color: var(--text-primary);
+}
+.otp-editor-heading h3 {
+  margin: 0 0 6px;
+}
+.otp-editor p,
+.otp-editor small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.otp-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(200px, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+  align-items: start;
+}
+.otp-editor-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.otp-settings-section {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.otp-settings-section h4,
+.otp-preview h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.otp-editor-form label:not(.otp-checkbox) {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.otp-editor-form input:not([type='checkbox']),
+.otp-editor-form textarea,
+.otp-editor-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  font: inherit;
+  font-size: 13px;
+}
+.otp-editor-form textarea {
+  min-height: 95px;
+  resize: vertical;
+}
+.otp-editor-form input:focus-visible,
+.otp-editor-form textarea:focus-visible,
+.otp-editor-form select:focus-visible {
+  outline: 2px solid var(--accent-primary, #10b981);
+  outline-offset: 2px;
+}
+.otp-button-row {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+}
+.otp-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.otp-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.otp-checkbox input {
+  margin-top: 3px;
+}
+.otp-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.otp-editor-error {
+  color: var(--danger, #dc2626) !important;
+}
+.otp-editor-status {
+  min-height: 20px;
+}
+.otp-preview {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+.otp-preview-bubble {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  overflow-wrap: anywhere;
+}
+.otp-preview-body {
+  white-space: pre-wrap;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.otp-preview-button {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+  margin-top: 12px;
+  color: var(--accent-primary, #10b981);
+  font-size: 13px;
+}
+.otp-preview-button small {
+  flex-basis: 100%;
+  text-align: center;
+}
+.otp-preview-image {
+  border: 1px dashed var(--border-color);
+  padding: 15px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+@media (max-width: 700px) {
+  .otp-editor-layout {
+    grid-template-columns: 1fr;
+  }
+  .otp-preview {
+    position: static;
+  }
+}
+.modal.otp-config-modal {
+  width: min(980px, 95vw);
+  max-width: 980px;
+}
