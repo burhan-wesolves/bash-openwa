@@ -1,7 +1,7 @@
 {
   "id": "supabase-otp-hook",
   "name": "Supabase Auth OTP",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "extension",
   "main": "index.js",
   "description": "Deliver Supabase OTPs as text, CTA, or CTA + Reply messages.",
@@ -21,7 +21,10 @@
       "signature": { "scheme": "standard-webhooks", "dedupHeader": "webhook-id" },
       "dedupOn": "body",
       "conversationId": { "jsonPointer": "/user/id" },
-      "response": { "preflight": [{ "type": "session-alive" }], "ack": { "status": 200, "body": "{}" } }
+      "response": {
+        "preflight": [{ "type": "session-alive" }],
+        "ack": { "status": 200, "body": "{}", "headers": { "content-type": "application/json" } }
+      }
     }
   ],
   "configSchema": {

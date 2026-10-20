@@ -39,7 +39,7 @@ describe('bundled OTP plugin deployment', () => {
   }
 
   it('installs the editor into a fresh volume without enabling the plugin', () => {
-    expect(installBundledOtpPlugin(bundles, pluginsDir)).toBe('0.5.0');
+    expect(installBundledOtpPlugin(bundles, pluginsDir)).toBe('0.5.1');
     const manifest = JSON.parse(fs.readFileSync(path.join(pluginsDir, ID, 'manifest.json'), 'utf8')) as PluginManifest;
     expect(manifest.configUi).toBeUndefined();
     expect(manifest.configSchema?.properties.messageMode.enum).toContain('cta_reply');
@@ -50,7 +50,7 @@ describe('bundled OTP plugin deployment', () => {
     fs.writeFileSync(path.join(live, 'key-c3RhdGU.json'), '{"keep":"plugin state"}');
     fs.writeFileSync(path.join(pluginsDir, 'registry.json'), '{"keep":"configuration"}');
     fs.writeFileSync(path.join(tmp, 'openwa.sqlite'), 'instance-and-secret-test-sentinel');
-    expect(installBundledOtpPlugin(bundles, pluginsDir)).toBe('0.5.0');
+    expect(installBundledOtpPlugin(bundles, pluginsDir)).toBe('0.5.1');
     expect(fs.readFileSync(path.join(live, 'key-c3RhdGU.json'), 'utf8')).toBe('{"keep":"plugin state"}');
     expect(fs.readFileSync(path.join(pluginsDir, 'registry.json'), 'utf8')).toBe('{"keep":"configuration"}');
     expect(fs.readFileSync(path.join(tmp, 'openwa.sqlite'), 'utf8')).toBe('instance-and-secret-test-sentinel');
@@ -62,7 +62,7 @@ describe('bundled OTP plugin deployment', () => {
     expect(installBundledOtpPlugin(bundles, pluginsDir)).toBeNull();
     expect(fs.readFileSync(path.join(live, 'index.js'), 'utf8')).toContain('OldPlugin');
     const manifest = JSON.parse(fs.readFileSync(path.join(live, 'manifest.json'), 'utf8')) as PluginManifest;
-    manifest.version = '0.5.0';
+    manifest.version = '0.5.1';
     fs.writeFileSync(path.join(live, 'manifest.json'), JSON.stringify(manifest));
     expect(installBundledOtpPlugin(bundles, pluginsDir)).toBeNull();
   });
@@ -114,7 +114,7 @@ describe('bundled OTP plugin deployment', () => {
     // A second boot must not rewrite the same package or remove state.
     const second = new Map<string, PluginInstance>();
     new PluginPackageScanner(createLogger('test'), config, storage, pluginsDir, null, second, bundles).scanAtBoot();
-    expect(second.get(ID)?.manifest.version).toBe('0.5.0');
+    expect(second.get(ID)?.manifest.version).toBe('0.5.1');
     expect(storage.getPluginEntry(ID)?.enabledByOperator).toBe(true);
   });
 });

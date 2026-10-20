@@ -11,8 +11,8 @@ capability to the host's existing Baileys button sender. Plain text remains the 
    No separate ZIP upload or release URL is needed for this fork. An equal or newer installed
    version is kept. Existing settings, enabled/disabled state, session overrides, plugin storage,
    instance records and signing secrets are preserved. Back up the data volume before upgrading.
-2. Confirm the startup log contains `Installed bundled Supabase Auth OTP v0.5.0` on the first
-   upgraded boot, and the plugin card shows v0.5.0. Refresh the dashboard and reopen Configure.
+2. Confirm the startup log contains `Installed bundled Supabase Auth OTP v0.5.1` on the first
+   upgraded boot, and the plugin card shows v0.5.1. Refresh the dashboard and reopen Configure.
    If it still shows an older version, check the deployment uses the updated image and look for
    `bundled_otp_install_failed` in the server logs (for example, a read-only plugin volume).
 3. Enable the plugin for the sending session if it was disabled. Bind the instance's **Session scope** to a
@@ -45,7 +45,7 @@ For development, `npm run start:dev` prepares the bundle before starting Nest's 
 a watch session, rerun `npm run package:otp` and restart the host. Bump the plugin version
 when changing its code so the startup upgrader recognizes it as newer than the installed copy.
 The generated bundle lives in `.bundled-plugins/`; the manual ZIP remains available at
-`dist/plugins/supabase-otp-hook-0.5.0.zip` for other compatible hosts.
+`dist/plugins/supabase-otp-hook-0.5.1.zip` for other compatible hosts.
 
 ## Configuration
 
@@ -82,7 +82,7 @@ npm run package:otp
 On PowerShell, calculate the release digest with:
 
 ```powershell
-Get-FileHash .\dist\plugins\supabase-otp-hook-0.5.0.zip -Algorithm SHA256
+Get-FileHash .\dist\plugins\supabase-otp-hook-0.5.1.zip -Algorithm SHA256
 ```
 
 The plugin source is maintained in this repository. An upstream catalog update can replace
