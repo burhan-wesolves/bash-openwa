@@ -6,6 +6,7 @@
 import { HookManager, HookEvent, HookHandler } from '../hooks';
 import type { MessageResponseDto } from '../../modules/message/dto';
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
+import type { ButtonsInput } from '../../engine/interfaces/interactive-message';
 import type { PluginNetRequestInit, PluginNetResponse } from './plugin-net';
 import type { HandoverState } from '../../modules/integration/entities/conversation-mapping.entity';
 import type { WebhookRequest, WebhookResponse, WebhookHandler } from './sandbox/worker-webhooks';
@@ -561,6 +562,8 @@ export class PluginCapabilityError extends Error {
 
 export interface PluginMessagingCapability {
   sendText(sessionId: string, chatId: string, text: string): Promise<MessageResponseDto>;
+  /** Native CTA / reply buttons. Uses the normal send gates, pacing and persistence. */
+  sendButtons(sessionId: string, chatId: string, input: ButtonsInput): Promise<MessageResponseDto>;
   reply(sessionId: string, chatId: string, quotedMessageId: string, text: string): Promise<MessageResponseDto>;
 }
 

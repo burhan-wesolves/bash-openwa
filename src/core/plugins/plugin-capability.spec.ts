@@ -36,13 +36,14 @@ function makePlugin(
 
 describe('PluginLoaderService capability facade — ctx.messages', () => {
   let loader: PluginLoaderService;
-  let messageService: { sendText: jest.Mock; reply: jest.Mock };
+  let messageService: { sendText: jest.Mock; sendButtons: jest.Mock; reply: jest.Mock };
   let sessionService: { getEngine: jest.Mock };
   let moduleRef: { get: jest.Mock };
 
   beforeEach(() => {
     messageService = {
       sendText: jest.fn().mockResolvedValue({ messageId: 'wamid', timestamp: 1 }),
+      sendButtons: jest.fn().mockResolvedValue({ messageId: 'buttons-id', timestamp: 1 }),
       reply: jest.fn().mockResolvedValue({ messageId: 'wamid', timestamp: 1 }),
     };
     sessionService = { getEngine: jest.fn().mockReturnValue({}) }; // truthy live engine
@@ -87,6 +88,33 @@ describe('PluginLoaderService capability facade — ctx.messages', () => {
       quotedMessageId: 'quoted-id',
       text: 'pong',
     });
+  });
+
+  const buttons = { title: 'Your code', buttons: [{ type: 'copy' as const, displayText: 'Copy', copyCode: '123456' }] };
+
+  it('routes button messages through MessageService with the scoped destination', async () => {
+    const ctx = contextFor(makePlugin(['sess-1']));
+    await ctx.messages.sendButtons('sess-1', '628@c.us', { ...buttons, chatId: 'injected@c.us' } as typeof buttons);
+    expect(messageService.sendButtons).toHaveBeenCalledWith('sess-1', { ...buttons, chatId: '628@c.us' });
+  });
+
+  it('rejects invalid buttons before calling the message service', async () => {
+    const ctx = contextFor(makePlugin(['*']));
+    await expect(ctx.messages.sendButtons('s', 'c', { title: 'Code', buttons: [] })).rejects.toThrow();
+    expect(messageService.sendButtons).not.toHaveBeenCalled();
+  });
+
+  it('enforces permission, manifest scope and session activation for buttons', async () => {
+    for (const plugin of [
+      makePlugin(['*'], []),
+      makePlugin(['other']),
+      makePlugin(['*'], ['messages:send'], ['other']),
+    ]) {
+      await expect(contextFor(plugin).messages.sendButtons('s', 'c', buttons)).rejects.toBeInstanceOf(
+        PluginCapabilityError,
+      );
+    }
+    expect(messageService.sendButtons).not.toHaveBeenCalled();
   });
 
   it('allows any session when manifest.sessions is absent (defaults to all)', async () => {

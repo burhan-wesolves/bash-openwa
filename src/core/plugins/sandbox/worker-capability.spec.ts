@@ -108,6 +108,10 @@ describe('buildSandboxContext', () => {
     await ctx.messages.sendText('s', 'c', 'hi');
     expect(call).toHaveBeenCalledWith('messages.sendText', ['s', 'c', 'hi']);
 
+    const input = { title: 'Code', buttons: [{ type: 'copy' as const, displayText: 'Copy', copyCode: '123456' }] };
+    await ctx.messages.sendButtons('s', 'c', input);
+    expect(call).toHaveBeenCalledWith('messages.sendButtons', ['s', 'c', input]);
+
     await ctx.messages.reply('s', 'c', 'q', 'hi');
     expect(call).toHaveBeenCalledWith('messages.reply', ['s', 'c', 'q', 'hi']);
 

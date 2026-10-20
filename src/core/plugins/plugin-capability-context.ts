@@ -4,6 +4,7 @@ import type { HookManager, HookEvent } from '../hooks';
 import type { LidMappingStore } from '../../engine/identity/lid-mapping-store.service';
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
 import { toNeutralJid } from '../../engine/identity/wa-id';
+import { validateButtonsInput } from '../../engine/interactive-validation';
 import { ConversationMappingConflict } from '../../modules/integration/conversation-mapping.service';
 import { createLogger } from '../../common/services/logger.service';
 import { isPluginActiveForSession, resolvePluginConfig } from './plugin-activation';
@@ -239,6 +240,19 @@ export class PluginCapabilityContext {
 
   private buildMessagesCapability(plugin: PluginInstance): PluginMessagingCapability {
     return {
+      sendButtons: async (sessionId, chatId, input) => {
+        this.assertPermission(plugin.manifest, PluginCapabilityPermission.MESSAGES_SEND);
+        this.resolveEngine(plugin, sessionId);
+        if (!input || typeof input !== 'object' || Array.isArray(input)) {
+          throw new PluginCapabilityError('sendButtons requires a button message object');
+        }
+        if (typeof chatId !== 'string' || !chatId.trim()) {
+          throw new PluginCapabilityError('sendButtons requires a chatId');
+        }
+        validateButtonsInput(input);
+        // The scoped positional destination wins over an untrusted object's chatId property.
+        return this.hostServices.getMessagePort().sendButtons(sessionId, { ...input, chatId });
+      },
       sendText: async (sessionId, chatId, text) => {
         // Validate permission + scope + that the session has a live engine BEFORE MessageService
         // persists a pending row: a missing grant / dead session must fail with

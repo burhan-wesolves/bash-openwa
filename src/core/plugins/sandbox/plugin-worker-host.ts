@@ -19,7 +19,12 @@ const logger = createLogger('PluginWorkerHost');
  * SEND_CAP_TIMEOUT_FACTOR × the base budget (see withCapTimeout), so the timeout stays a "wedged
  * call" signal instead of firing inside normal execution. The in-flight bound is unchanged.
  */
-const SEND_CAP_VERBS: ReadonlySet<string> = new Set(['messages.sendText', 'messages.reply', 'conversation.send']);
+const SEND_CAP_VERBS: ReadonlySet<string> = new Set([
+  'messages.sendText',
+  'messages.sendButtons',
+  'messages.reply',
+  'conversation.send',
+]);
 
 /** Send-verb budget as a multiple of capTimeoutMs (default 30s → 120s: the 30s media download + upload headroom). */
 const SEND_CAP_TIMEOUT_FACTOR = 4;

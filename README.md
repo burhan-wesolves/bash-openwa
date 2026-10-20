@@ -47,6 +47,14 @@ Built on a **pluggable architecture**, OpenWA lets you select database engines (
 | 🔐 **Session-scoped keys**    | Operator and viewer (reader) tokens can be limited to chosen sessions — or all sessions if none are selected                             |
 | 🔒 **Chat-scoped keys**       | Those same tokens can also be limited to chosen chats — a few groups and contacts — so an agent on a shared account sees only its own    |
 
+### Supabase OTP message editor (Wesolves fork)
+
+This fork includes a [Supabase OTP plugin with Text, CTA and CTA + Reply modes](./integrations/supabase-otp-hook/README.md).
+Configure copy-code, URL and call buttons, reply callback IDs, message branding and a live preview
+from the plugin dashboard. Build the host and run `npm run package:otp` to produce the installable
+plugin archive. Native button messages require a Baileys session and client rendering must be tested
+on the recipient's WhatsApp application.
+
 ### Session-scoped operator & viewer tokens
 
 When you create or edit an **operator** or **viewer** API key in the dashboard, you can tick the WhatsApp sessions that key may use.

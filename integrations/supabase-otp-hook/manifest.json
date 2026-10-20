@@ -1,0 +1,76 @@
+{
+  "id": "supabase-otp-hook",
+  "name": "Supabase Auth OTP",
+  "version": "0.4.0",
+  "type": "extension",
+  "main": "index.js",
+  "description": "Deliver Supabase OTPs as text, CTA, or CTA + Reply messages.",
+  "author": "Wesolves",
+  "license": "MIT",
+  "sdkVersion": "1",
+  "minOpenWAVersion": "0.24.0",
+  "permissions": ["webhook:ingress", "messages:send"],
+  "sessionScoped": true,
+  "sessions": ["*"],
+  "configUi": { "entry": "config-ui.html", "height": 820 },
+  "ingress": [
+    {
+      "route": "send-sms",
+      "mode": "async",
+      "verify": "core",
+      "maxBodyBytes": 20480,
+      "signature": { "scheme": "standard-webhooks", "dedupHeader": "webhook-id" },
+      "dedupOn": "body",
+      "conversationId": { "jsonPointer": "/user/id" },
+      "response": { "preflight": [{ "type": "session-alive" }], "ack": { "status": 200, "body": "{}" } }
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "appName": { "type": "string", "title": "App name", "required": true, "default": "My app" },
+      "messageMode": {
+        "type": "string",
+        "title": "Message format",
+        "enum": ["text", "cta", "cta_reply"],
+        "default": "text"
+      },
+      "messageTemplate": {
+        "type": "textarea",
+        "title": "Message body",
+        "default": "{appName} | Your verification code is {otp}"
+      },
+      "title": { "type": "string", "title": "Title", "default": "{appName} verification" },
+      "footer": { "type": "string", "title": "Footer", "default": "Do not share this code." },
+      "thumbnailUrl": { "type": "string", "title": "Header image URL", "default": "" },
+      "fallbackSessionId": { "type": "string", "title": "Fallback WhatsApp session ID", "default": "" },
+      "fallbackToText": { "type": "boolean", "title": "Text fallback when buttons are unsupported", "default": false },
+      "debug": { "type": "boolean", "title": "Delivery diagnostics", "default": false },
+      "ctaButtons": {
+        "type": "array",
+        "title": "CTA buttons",
+        "max": 2,
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["copy", "url", "call"] },
+            "displayText": { "type": "string", "title": "Button label" },
+            "value": { "type": "string", "title": "Code, URL or phone number" }
+          }
+        }
+      },
+      "replyButtons": {
+        "type": "array",
+        "title": "Reply buttons",
+        "max": 3,
+        "items": {
+          "type": "object",
+          "properties": {
+            "displayText": { "type": "string", "title": "Reply label" },
+            "id": { "type": "string", "title": "Reply callback ID" }
+          }
+        }
+      }
+    }
+  }
+}

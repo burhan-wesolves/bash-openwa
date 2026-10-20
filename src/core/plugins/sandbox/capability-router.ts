@@ -53,6 +53,8 @@ export async function dispatchCapabilityVerb(
   switch (verb) {
     case 'messages.sendText':
       return context.messages.sendText(s(0), s(1), s(2));
+    case 'messages.sendButtons':
+      return context.messages.sendButtons(s(0), s(1), args[2] as Parameters<typeof context.messages.sendButtons>[2]);
     case 'messages.reply':
       return context.messages.reply(s(0), s(1), s(2), s(3));
     case 'engine.getGroupInfo':

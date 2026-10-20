@@ -12,6 +12,8 @@
     "enabled": false
   },
   "scripts": {
+    "package:otp": "node scripts/package-supabase-otp.cjs",
+    "test:otp": "node --test integrations/supabase-otp-hook/*.test.cjs",
     "build": "nest build",
     "build:all": "nest build && npm run dashboard:build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"**/*.md\"",

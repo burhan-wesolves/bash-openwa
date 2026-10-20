@@ -2,6 +2,7 @@ import { WorkerToHostMessage, HostToWorkerMessage } from './protocol';
 import { hookConfigStore } from './worker-hooks';
 import { ConversationSendEnvelope } from '../plugin.interfaces';
 import { HandoverState } from '../../../modules/integration/entities/conversation-mapping.entity';
+import type { ButtonsInput } from '../../../engine/interfaces/interactive-message';
 
 /**
  * Worker-side correlation for capability calls. Each `call` posts a `cap` request and resolves when
@@ -37,6 +38,7 @@ export class WorkerCapabilityClient {
 export interface SandboxCapabilityContext {
   messages: {
     sendText(sessionId: string, chatId: string, text: string): Promise<unknown>;
+    sendButtons(sessionId: string, chatId: string, input: ButtonsInput): Promise<unknown>;
     reply(sessionId: string, chatId: string, quotedMessageId: string, text: string): Promise<unknown>;
   };
   engine: {
@@ -78,6 +80,7 @@ export function buildSandboxContext(client: WorkerCapabilityClient): SandboxCapa
   return {
     messages: {
       sendText: (sessionId, chatId, text) => client.call('messages.sendText', [sessionId, chatId, text]),
+      sendButtons: (sessionId, chatId, input) => client.call('messages.sendButtons', [sessionId, chatId, input]),
       reply: (sessionId, chatId, quotedMessageId, text) =>
         client.call('messages.reply', [sessionId, chatId, quotedMessageId, text]),
     },

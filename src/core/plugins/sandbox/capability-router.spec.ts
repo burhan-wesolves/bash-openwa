@@ -4,6 +4,7 @@ function makeContext() {
   return {
     messages: {
       sendText: jest.fn().mockResolvedValue({ messageId: 'm1' }),
+      sendButtons: jest.fn().mockResolvedValue({ messageId: 'buttons' }),
       reply: jest.fn().mockResolvedValue({ messageId: 'm2' }),
     },
     engine: {
@@ -39,6 +40,15 @@ function makeContext() {
 }
 
 describe('dispatchCapabilityVerb', () => {
+  it('routes button messages with their scoped positional destination', async () => {
+    const ctx = makeContext();
+    const input = { title: 'Code', buttons: [{ type: 'copy', displayText: 'Copy', copyCode: '123456' }] };
+    await dispatchCapabilityVerb(ctx, 'messages.sendButtons', ['s', 'c', input]);
+    expect(ctx.messages.sendButtons).toHaveBeenCalledWith('s', 'c', input);
+    await expect(dispatchCapabilityVerb(ctx, 'messages.sendButtons', ['s', undefined, input])).rejects.toThrow(
+      /non-empty string/,
+    );
+  });
   it('routes messages.sendText to the context with positional args', async () => {
     const ctx = makeContext();
     const out = await dispatchCapabilityVerb(ctx, 'messages.sendText', ['s', 'c', 'hi']);

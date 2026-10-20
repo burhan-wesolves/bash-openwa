@@ -1,4 +1,5 @@
 import type { IWhatsAppEngine } from '../../engine/interfaces/whatsapp-engine.interface';
+import type { ButtonsInput } from '../../engine/interfaces/interactive-message';
 // Type-only, on purpose: they keep the port signatures aligned with the real services without
 // creating any runtime module edge from core back into a feature module.
 import type { MessageResponseDto } from '../../modules/message/dto';
@@ -18,6 +19,7 @@ import type { HandoverState } from '../../modules/integration/entities/conversat
  * the old lazy `require(...)` of feature-module paths is gone entirely.
  */
 export interface PluginMessagePort {
+  sendButtons(sessionId: string, dto: ButtonsInput & { chatId: string }): Promise<MessageResponseDto>;
   sendText(
     sessionId: string,
     dto: { chatId: string; text: string; linkPreview?: boolean },
