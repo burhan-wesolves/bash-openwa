@@ -769,6 +769,23 @@
     "exportNoMatchesTruncated": "لا يطابق البحث أيًّا من أحدث {{rows}} إدخال تم فحصها، لذا لم يُصدَّر شيء. لم يشمل البحث الإدخالات الأقدم."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "تتطلب هذه الرسائل محرك Baileys. اختر جلسة جاهزة قبل الإرسال.",
+      "buttonsHint": "حتى 3 أزرار رد وزرّي CTA. أرسل PIX منفردًا.",
+      "listHint": "حتى 10 صفوف إجمالًا. يلزم rowId فريد لكل صف.",
+      "carouselHint": "حتى 10 بطاقات و1–3 أزرار لكل بطاقة. لا يدعم PIX.",
+      "payload": "محتوى الرسالة (JSON)",
+      "editHint": "عدّل المحتوى هنا؛ الجلسة والمستلم في النموذج أعلاه. تتحقق API من الحقول والحدود.",
+      "invalid": "أدخل كائن JSON بالحقول المطلوبة. حدّد المستلم في النموذج أعلاه.",
+      "preview": "معاينة توضيحية للرسالة"
+    },
     "title": "اختبار الرسائل",
     "subtitle": "إرسال رسائل تجريبية عبر API",
     "compose": "إرسال رسالة تجريبية",
@@ -793,6 +810,7 @@
     "phoneHint": "استخدم الصيغة الدولية بدون مسافات",
     "messageType": "نوع الرسالة",
     "types": {
+      "business": "Business messages",
       "text": "نص",
       "image": "صورة",
       "video": "فيديو",

@@ -1502,3 +1502,62 @@ export interface ConvertedMedia {
 export interface MediaConversionAvailability {
   available: boolean;
 }
+
+/** Baileys-only business-message payloads. See docs/interactive-messages.md for limits. */
+export interface BusinessButton {
+  type: string;
+  displayText?: string;
+  id?: string;
+  url?: string;
+  phoneNumber?: string;
+  copyCode?: string;
+  currency?: string;
+  name?: string;
+  keyType?: string;
+  key?: string;
+}
+
+export interface BusinessListRow {
+  title: string;
+  description?: string;
+  rowId: string;
+}
+
+export interface BusinessListSection {
+  title: string;
+  rows: BusinessListRow[];
+}
+
+export interface BusinessCarouselCard {
+  body: string;
+  footer?: string;
+  imageUrl?: string;
+  buttons: BusinessButton[];
+}
+
+export interface SendButtonsRequest {
+  chatId: string;
+  title: string;
+  description?: string;
+  footer?: string;
+  thumbnailUrl?: string;
+  buttons: BusinessButton[];
+  quotedMessageId?: string;
+}
+
+export interface SendListRequest {
+  chatId: string;
+  title: string;
+  description?: string;
+  footerText?: string;
+  buttonText: string;
+  sections: BusinessListSection[];
+  quotedMessageId?: string;
+}
+
+export interface SendCarouselRequest {
+  chatId: string;
+  body: string;
+  cards: BusinessCarouselCard[];
+  quotedMessageId?: string;
+}

@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "已扫描的最新 {{rows}} 条记录中没有与搜索匹配的条目，因此未导出任何内容。更早的条目未被搜索。"
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "这些消息需要 Baileys 引擎。发送前请选择就绪的会话。",
+      "buttonsHint": "最多 3 个回复按钮和 2 个 CTA 按钮。PIX 必须单独发送。",
+      "listHint": "所有分区共最多 10 行，每行需要唯一的 rowId。",
+      "carouselHint": "最多 10 张卡片，每张包含 1–3 个按钮。卡片不支持 PIX。",
+      "payload": "消息内容（JSON）",
+      "editHint": "在此编辑内容，在上方选择会话和收件人。API 会验证字段和限制。",
+      "invalid": "请输入包含必需字段的 JSON 对象。请在上方表单选择收件人。",
+      "preview": "消息预览（示意）"
+    },
     "title": "消息测试器",
     "subtitle": "通过 API 发送测试消息",
     "compose": "发送测试消息",
@@ -768,6 +785,7 @@
     "phoneHint": "使用无空格的国际格式",
     "messageType": "消息类型",
     "types": {
+      "business": "Business messages",
       "text": "文本",
       "image": "图片",
       "video": "视频",

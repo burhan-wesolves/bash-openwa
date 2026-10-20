@@ -77,6 +77,24 @@ export interface MethodCapability {
  * silent drop.
  */
 export const CURATED_CAPABILITY_EXCEPTIONS: Record<string, MethodCapability> = {
+  sendButtonsMessage: {
+    wwjs: { status: 'not-available', rootCause: 'library-limitation' },
+    baileys: { status: 'supported' },
+    evidence:
+      'Baileys generateWAMessageFromContent + relayMessage with interactiveMessage/nativeFlowMessage and business additionalNodes; whatsapp-web.js buttons are deprecated',
+  },
+  sendListMessage: {
+    wwjs: { status: 'not-available', rootCause: 'library-limitation' },
+    baileys: { status: 'supported' },
+    evidence:
+      'Baileys relayMessage with interactiveMessage/nativeFlowMessage single_select and business native_flow node; whatsapp-web.js lists are deprecated',
+  },
+  sendCarouselMessage: {
+    wwjs: { status: 'not-available', rootCause: 'library-limitation' },
+    baileys: { status: 'supported' },
+    evidence:
+      'Baileys prepareWAMessageMedia + relayMessage with interactiveMessage/carouselMessage; whatsapp-web.js has no carousel sender',
+  },
   upsertLabel: {
     wwjs: { status: 'not-available', rootCause: 'library-limitation' },
     baileys: { status: 'supported' },

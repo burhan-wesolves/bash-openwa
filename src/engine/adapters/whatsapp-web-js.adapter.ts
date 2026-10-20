@@ -1,3 +1,4 @@
+import type { ButtonsInput, ListInput, CarouselInput } from '../interfaces/interactive-message';
 import { EventEmitter } from 'events';
 import { type Client, type Message } from 'whatsapp-web.js';
 import {
@@ -638,6 +639,21 @@ export class WhatsAppWebJsAdapter extends EventEmitter implements IWhatsAppEngin
 
   sendPollMessage(chatId: string, poll: PollInput): Promise<MessageResult> {
     return this.messaging.sendPollMessage(chatId, poll);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sendButtonsMessage(_chatId: string, _input: ButtonsInput): Promise<MessageResult> {
+    throw new EngineNotSupportedError('sendButtonsMessage');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sendListMessage(_chatId: string, _input: ListInput): Promise<MessageResult> {
+    throw new EngineNotSupportedError('sendListMessage');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sendCarouselMessage(_chatId: string, _input: CarouselInput): Promise<MessageResult> {
+    throw new EngineNotSupportedError('sendCarouselMessage');
   }
 
   replyToMessage(chatId: string, quotedMsgId: string, text: string, mentions?: string[]): Promise<MessageResult> {

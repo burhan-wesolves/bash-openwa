@@ -26,6 +26,9 @@ from ..types import (
     MessageHistoryQuery,
     MessageListResponse,
     MessageResponse,
+    SendCarouselRequest,
+    SendListRequest,
+    SendButtonsRequest,
     ReactionRecord,
     ReactMessageRequest,
     ReplyMessageRequest,
@@ -85,6 +88,18 @@ class MessagesResource:
     def send_poll(self, session_id: str, body: SendPollRequest, *, idempotency_key: str | None = None) -> MessageResponse:
         """Send a native WhatsApp poll (2–12 options)."""
         return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/messages/send-poll", body=body, idempotency_key=idempotency_key)
+
+    def send_buttons(self, session_id: str, body: SendButtonsRequest, *, idempotency_key: str | None = None) -> MessageResponse:
+        """Send a business buttons message (Baileys only)."""
+        return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/messages/send-buttons", body=body, idempotency_key=idempotency_key)
+
+    def send_list(self, session_id: str, body: SendListRequest, *, idempotency_key: str | None = None) -> MessageResponse:
+        """Send a business list message (Baileys only)."""
+        return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/messages/send-list", body=body, idempotency_key=idempotency_key)
+
+    def send_carousel(self, session_id: str, body: SendCarouselRequest, *, idempotency_key: str | None = None) -> MessageResponse:
+        """Send a business carousel message (Baileys only)."""
+        return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/messages/send-carousel", body=body, idempotency_key=idempotency_key)
 
     def reply(self, session_id: str, body: ReplyMessageRequest, *, idempotency_key: str | None = None) -> MessageResponse:
         return self._http.request("POST", f"/api/sessions/{quote_segment(session_id)}/messages/reply", body=body, idempotency_key=idempotency_key)

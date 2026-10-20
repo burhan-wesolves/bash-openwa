@@ -27,6 +27,9 @@ import com.rmyndharis.openwa.model.SendLocationRequest;
 import com.rmyndharis.openwa.model.SendMediaRequest;
 import com.rmyndharis.openwa.model.SendAudioRequest;
 import com.rmyndharis.openwa.model.SendPollRequest;
+import com.rmyndharis.openwa.model.SendCarouselRequest;
+import com.rmyndharis.openwa.model.SendListRequest;
+import com.rmyndharis.openwa.model.SendButtonsRequest;
 import com.rmyndharis.openwa.model.SendTemplateRequest;
 import com.rmyndharis.openwa.model.SendTextRequest;
 import com.rmyndharis.openwa.model.StarMessageRequest;
@@ -167,6 +170,33 @@ public final class MessagesResource {
     }
 
     /** Send a native WhatsApp poll (2–12 options). */
+    /** Send a business buttons message (Baileys only). */
+    public MessageResponse sendButtons(String sessionId, SendButtonsRequest body) {
+        return sendButtons(sessionId, body, null);
+    }
+
+    public MessageResponse sendButtons(String sessionId, SendButtonsRequest body, String idempotencyKey) {
+        return client.request(HttpMethod.POST, "/api/sessions/" + encodeSegment(sessionId) + "/messages/send-buttons", null, body, MessageResponse.class, idempotencyKey);
+    }
+
+    /** Send a business list message (Baileys only). */
+    public MessageResponse sendList(String sessionId, SendListRequest body) {
+        return sendList(sessionId, body, null);
+    }
+
+    public MessageResponse sendList(String sessionId, SendListRequest body, String idempotencyKey) {
+        return client.request(HttpMethod.POST, "/api/sessions/" + encodeSegment(sessionId) + "/messages/send-list", null, body, MessageResponse.class, idempotencyKey);
+    }
+
+    /** Send a business carousel message (Baileys only). */
+    public MessageResponse sendCarousel(String sessionId, SendCarouselRequest body) {
+        return sendCarousel(sessionId, body, null);
+    }
+
+    public MessageResponse sendCarousel(String sessionId, SendCarouselRequest body, String idempotencyKey) {
+        return client.request(HttpMethod.POST, "/api/sessions/" + encodeSegment(sessionId) + "/messages/send-carousel", null, body, MessageResponse.class, idempotencyKey);
+    }
+
     public MessageResponse sendPoll(String sessionId, SendPollRequest body) {
         return sendPoll(sessionId, body, null);
     }

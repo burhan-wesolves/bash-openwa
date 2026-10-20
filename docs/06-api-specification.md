@@ -1854,6 +1854,30 @@ Quoting a message from a **different chat** is not validated on these `send-*` r
 engine; the id is passed through as given. `POST /messages/reply` is stricter: both engines refuse a
 quoted id that does not belong to the target chat, with `404`.
 
+#### POST /api/sessions/:sessionId/messages/send-buttons
+
+Send a business buttons message through the Baileys engine. OPERATOR, session/chat scope, send pacing, plugin moderation, and `Idempotency-Key` apply. Supports reply, URL, call, copy, mixed reply + CTA, and standalone PIX buttons. See [payload fields, limits, examples, and the dashboard tester](interactive-messages.md).
+
+**Response:** `201` with `{ messageId, timestamp }`.
+
+**Errors:** `400` invalid payload/destination or inactive session; `401`/`403` authorization; `404` unknown quote; `409` engine not ready or idempotency key pending/outcome unknown; `413` image exceeds the media cap; `422` idempotency key reused with a different request; `429` send pacing; `501` unavailable on whatsapp-web.js; `503` recipient lookup failure.
+
+#### POST /api/sessions/:sessionId/messages/send-list
+
+Send a business list message through the Baileys engine. OPERATOR, session/chat scope, send pacing, plugin moderation, and `Idempotency-Key` apply. See [payload fields, limits, examples, and the dashboard tester](interactive-messages.md).
+
+**Response:** `201` with `{ messageId, timestamp }`.
+
+**Errors:** `400` invalid payload/destination or inactive session; `401`/`403` authorization; `404` unknown quote; `409` engine not ready or idempotency key pending/outcome unknown; `422` idempotency key reused with a different request; `429` send pacing; `501` unavailable on whatsapp-web.js; `503` recipient lookup failure.
+
+#### POST /api/sessions/:sessionId/messages/send-carousel
+
+Send a business carousel message through the Baileys engine. OPERATOR, session/chat scope, send pacing, plugin moderation, and `Idempotency-Key` apply. See [payload fields, limits, examples, and the dashboard tester](interactive-messages.md).
+
+**Response:** `201` with `{ messageId, timestamp }`.
+
+**Errors:** `400` invalid payload/destination or inactive session; `401`/`403` authorization; `404` unknown quote; `409` engine not ready or idempotency key pending/outcome unknown; `413` image exceeds the media cap; `422` idempotency key reused with a different request; `429` send pacing; `501` unavailable on whatsapp-web.js; `503` recipient lookup failure.
+
 #### POST /api/sessions/:sessionId/messages/send-template
 
 Render a stored text template (header/body/footer joined by blank lines, `{{vars}}` substituted) and send it as text.

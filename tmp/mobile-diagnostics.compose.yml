@@ -1,0 +1,6 @@
+services:
+  openwa:
+    environment:
+      BAILEYS_LOG_LEVEL: trace
+      # Experiment: link as Baileys' default macOS identity, like the working Evo build. Needs a re-pair.
+      BAILEYS_BROWSER_NAME: Mac OS

@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "Tidak ada dari {{rows}} entri terbaru yang dipindai cocok dengan pencarian, jadi tidak ada yang diekspor. Entri lama tidak dicari."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "Pesan ini memerlukan Baileys. Pilih sesi yang siap sebelum mengirim.",
+      "buttonsHint": "Maksimal 3 tombol balasan dan 2 CTA. Kirim PIX sendiri.",
+      "listHint": "Maksimal 10 baris total dengan rowId unik di setiap baris.",
+      "carouselHint": "Maksimal 10 kartu dengan 1–3 tombol per kartu. Tanpa PIX.",
+      "payload": "Isi pesan (JSON)",
+      "editHint": "Edit isi di sini; pilih sesi dan penerima di atas. API memvalidasi kolom dan batas.",
+      "invalid": "Masukkan objek JSON dengan kolom wajib. Pilih penerima di formulir atas.",
+      "preview": "Pratinjau pesan (ilustrasi)"
+    },
     "title": "Penguji Pesan",
     "subtitle": "Kirim pesan uji melalui API",
     "compose": "Kirim Pesan Uji",
@@ -768,6 +785,7 @@
     "phoneHint": "Gunakan format internasional tanpa spasi",
     "messageType": "Tipe Pesan",
     "types": {
+      "business": "Business messages",
       "text": "Teks",
       "image": "Gambar",
       "video": "Video",

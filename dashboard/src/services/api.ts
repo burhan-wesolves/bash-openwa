@@ -1,3 +1,4 @@
+import type { ButtonsPayload, ListPayload, CarouselPayload } from '../utils/businessMessages';
 // API Service Layer for OpenWA Dashboard
 // Centralized API client with TypeScript types
 
@@ -1138,6 +1139,21 @@ export const messageApi = {
     request<MessageResponse>(`/sessions/${sessionId}/messages/send-sticker`, {
       method: 'POST',
       body: JSON.stringify({ chatId, ...payload }),
+    }),
+  sendButtons: (sessionId: string, data: ButtonsPayload & { chatId: string }) =>
+    request<MessageResponse>(`/sessions/${sessionId}/messages/send-buttons`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  sendList: (sessionId: string, data: ListPayload & { chatId: string }) =>
+    request<MessageResponse>(`/sessions/${sessionId}/messages/send-list`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  sendCarousel: (sessionId: string, data: CarouselPayload & { chatId: string }) =>
+    request<MessageResponse>(`/sessions/${sessionId}/messages/send-carousel`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
   sendPoll: (sessionId: string, data: SendPollPayload) =>
     request<MessageResponse>(`/sessions/${sessionId}/messages/send-poll`, {

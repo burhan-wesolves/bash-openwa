@@ -6,7 +6,12 @@ import type {
   WAMessageKey,
   WASocket,
 } from '@whiskeysockets/baileys';
+import { randomBytes } from 'node:crypto';
 import { generateSafeLinkPreview } from './safe-link-preview';
+import type { BinaryNode, proto } from '@whiskeysockets/baileys';
+import type { ButtonsInput, ListInput, CarouselInput } from '../interfaces/interactive-message';
+import { validateButtonsInput, validateListInput, validateCarouselInput } from '../interactive-validation';
+import { businessNodes, buttonsContent, listContent, carouselContent } from './baileys-business-messages';
 import {
   CallLinkType,
   CustomLinkPreview,
@@ -556,6 +561,78 @@ export class BaileysMessaging {
     );
   }
 
+  async sendButtonsMessage(chatId: string, input: ButtonsInput): Promise<MessageResult> {
+    this.host.ensureReady();
+    validateButtonsInput(input);
+    this.assertBusinessDestination(chatId);
+    const quote = await this.quoteOption(input.quotedMessageId);
+    const header =
+      input.buttons[0].type !== 'pix' && input.thumbnailUrl
+        ? await this.businessImageHeader(input.thumbnailUrl)
+        : undefined;
+    return this.sendBusinessContent(chatId, buttonsContent(input, header), businessNodes(), quote);
+  }
+
+  async sendListMessage(chatId: string, input: ListInput): Promise<MessageResult> {
+    this.host.ensureReady();
+    validateListInput(input);
+    this.assertBusinessDestination(chatId);
+    return this.sendBusinessContent(
+      chatId,
+      listContent(input),
+      businessNodes(),
+      await this.quoteOption(input.quotedMessageId),
+    );
+  }
+
+  async sendCarouselMessage(chatId: string, input: CarouselInput): Promise<MessageResult> {
+    this.host.ensureReady();
+    validateCarouselInput(input);
+    this.assertBusinessDestination(chatId);
+    const quote = await this.quoteOption(input.quotedMessageId);
+    const content = await carouselContent(input, url => this.businessImageHeader(url));
+    return this.sendBusinessContent(chatId, content, businessNodes(), quote);
+  }
+
+  private assertBusinessDestination(chatId: string): void {
+    const kind = parseWaId(chatId).kind;
+    if (kind !== 'user' && kind !== 'lid' && kind !== 'group') {
+      throw new BadRequestException('Business messages require an individual or group chat');
+    }
+  }
+
+  private async businessImageHeader(url: string): Promise<proto.Message.InteractiveMessage.IHeader> {
+    const media = await resolveMediaBuffer(
+      { data: url, mimetype: 'application/octet-stream' },
+      this.host.sessionProxyUrl(),
+      'image/jpeg',
+    );
+    if (!media.mimetype.startsWith('image/'))
+      throw new BadRequestException('Business message headers require an image');
+    const lib = await this.host.loadLib();
+    const prepared = await lib.prepareWAMessageMedia(
+      { image: media.data, mimetype: media.mimetype },
+      { upload: this.sock().waUploadToServer },
+    );
+    if (!prepared.imageMessage) throw new EngineRefusedError('Could not prepare the business message image');
+    return { hasMediaAttachment: true, imageMessage: prepared.imageMessage };
+  }
+
+  private sendBusinessContent(
+    chatId: string,
+    content: proto.IMessage,
+    nodes: BinaryNode[],
+    options?: MiscMessageGenerationOptions,
+  ): Promise<MessageResult> {
+    // The raw relay shares recipient checks, routing, storage, previews, and sent events with normal sends.
+    // Baileys gives every normal send a message secret (and so a reporting token); match that here.
+    const withSecret = {
+      ...content,
+      messageContextInfo: { ...content.messageContextInfo, messageSecret: randomBytes(32) },
+    };
+    return this.sendContent(chatId, { text: '' }, options, { content: withSecret, nodes });
+  }
+
   async replyToMessage(chatId: string, quotedMsgId: string, text: string, mentions?: string[]): Promise<MessageResult> {
     this.host.ensureReady();
     const quoted = await this.requireStored(quotedMsgId);
@@ -815,12 +892,13 @@ export class BaileysMessaging {
     chatId: string,
     content: AnyMessageContent,
     options?: MiscMessageGenerationOptions,
+    raw?: { content: proto.IMessage; nodes: BinaryNode[] },
   ): Promise<MessageResult> {
     const b = await this.host.loadLib();
     const jid = await this.toDeliverableJid(chatId);
     const safe = this.previewSafe(content);
     const merged = this.previewSafeOptions(safe, this.withEphemeral(jid, options));
-    const sent = await this.send(jid, safe, merged);
+    const sent = await this.send(jid, safe, merged, raw);
     if (sent) {
       void this.host.putStoredMessage(sent)?.catch(err =>
         this.host.logger.warn('Failed to persist sent message to store', {
@@ -867,6 +945,7 @@ export class BaileysMessaging {
     jid: string,
     content: Parameters<WASocket['sendMessage']>[1],
     options?: Parameters<WASocket['sendMessage']>[2],
+    raw?: { content: proto.IMessage; nodes: BinaryNode[] },
   ): Promise<WAMessage | undefined> {
     const sock = this.sock();
     if (parseWaId(jid).kind === 'user') {
@@ -885,7 +964,20 @@ export class BaileysMessaging {
     if (this.host.getSocketOrNull() !== sock) throw new EngineNotReadyError();
     let sent: WAMessage | undefined;
     try {
-      sent = options ? await sock.sendMessage(jid, content, options) : await sock.sendMessage(jid, content);
+      if (raw) {
+        const lib = await this.host.loadLib();
+        if (this.host.getSocketOrNull() !== sock || !sock.user?.id) throw new EngineNotReadyError();
+        // relayMessage normally generates a sender-aware id. Generating without the
+        // sender here bypassed that path; supply the same id before registering the echo.
+        const messageId = lib.generateMessageIDV2(sock.user.id);
+        sent = lib.generateWAMessageFromContent(jid, raw.content, { ...options, userJid: sock.user.id, messageId });
+        if (!sent.key.id || !sent.message) throw new EngineRefusedError('Could not generate a business message');
+        // Register before relay: an append echo can arrive before relayMessage resolves.
+        this.host.rememberOwnSend(sent.key.id);
+        await sock.relayMessage(jid, sent.message, { messageId: sent.key.id, additionalNodes: raw.nodes });
+      } else {
+        sent = options ? await sock.sendMessage(jid, content, options) : await sock.sendMessage(jid, content);
+      }
     } catch (error) {
       if (this.host.getSocketOrNull() !== sock) throw new EngineNotReadyError();
       throw error;

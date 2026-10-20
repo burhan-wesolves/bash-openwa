@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "검사한 최신 항목 {{rows}}개 중 검색과 일치하는 항목이 없어 아무것도 내보내지 않았습니다. 이전 항목은 검색하지 않았습니다."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "이 메시지는 Baileys 엔진이 필요합니다. 전송 전에 준비된 세션을 선택하세요.",
+      "buttonsHint": "답장 버튼 최대 3개와 CTA 최대 2개. PIX는 단독으로 전송하세요.",
+      "listHint": "전체 최대 10개 행. 각 행에 고유한 rowId가 필요합니다.",
+      "carouselHint": "최대 10개 카드, 카드당 버튼 1–3개. 카드에서 PIX는 지원되지 않습니다.",
+      "payload": "메시지 내용 (JSON)",
+      "editHint": "여기서 내용을 편집하고 위에서 세션과 수신자를 선택하세요. API가 필드와 제한을 검사합니다.",
+      "invalid": "필수 필드가 포함된 JSON 객체를 입력하세요. 수신자는 위 양식에서 선택하세요.",
+      "preview": "메시지 미리보기 (예시)"
+    },
     "title": "메시지 테스터",
     "subtitle": "API를 통해 테스트 메시지를 보내세요",
     "compose": "테스트 메시지 보내기",
@@ -768,6 +785,7 @@
     "phoneHint": "공백 없이 국제 형식으로 입력하세요",
     "messageType": "메시지 유형",
     "types": {
+      "business": "Business messages",
       "text": "텍스트",
       "image": "이미지",
       "video": "동영상",

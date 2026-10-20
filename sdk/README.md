@@ -29,7 +29,7 @@ All five SDKs expose the same fluent resource surface:
 | Resource    | Methods                                                                                                                                                                                                                                                                                    |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `sessions`  | list, get, getConfig, updateConfig, getProxy, updateProxy, create, delete, start, stop, logout, forceKill, getQrCode, requestPairingCode, setOnlinePresence, stats                                                                                                                         |
-| `messages`  | list, sendText, sendImage/Video/Audio/Document/Sticker, sendLocation, sendContact, sendTemplate, sendPoll, reply, clickButton, forward, react, delete, editMessage, history, reactions, media, pin, unpin, star, votePoll, sendBulk, batchStatus, cancelBatch                              |
+| `messages`  | list, sendText, sendImage/Video/Audio/Document/Sticker, sendLocation, sendContact, sendTemplate, sendPoll, sendButtons, sendList, sendCarousel, reply, clickButton, forward, react, delete, editMessage, history, reactions, media, pin, unpin, star, votePoll, sendBulk, batchStatus, cancelBatch                              |
 | `contacts`  | list, get, check, profilePicture, profilePictures, phone, upsert, delete, block, unblock, listBlocked                                                                                                                                                                                      |
 | `groups`    | list, get, create, joinGroup, joinInfo, add/remove/promote/demoteParticipants, setSubject, setDescription, get/updateGroupSettings, leave, getPicture, setPicture, deletePicture, inviteCode, revokeInviteCode, getMembershipRequests, approveMembershipRequests, rejectMembershipRequests |
 | `webhooks`  | list, listAll, deliveryFailures, redriveDeliveryFailures, get, create, update, delete, test                                                                                                                                                                                                |
@@ -296,3 +296,5 @@ cd sdk/go && go test -race ./... && go vet ./...
 Each test suite mocks the HTTP layer and asserts on the exact path, so the
 regression that originally shipped a broken `messages/text` path (the real path
 is `messages/send-text`) can never recur silently.
+
+Business messages (Baileys only) are unreleased additions after SDK 0.5.1. See [payloads, limits, and examples](../docs/interactive-messages.md).

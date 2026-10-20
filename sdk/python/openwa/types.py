@@ -1526,3 +1526,61 @@ class MediaConversionAvailability(TypedDict, total=False):
     """Whether server-side conversion can be used on this deployment."""
 
     available: bool
+
+# Baileys-only business-message payloads.
+class BusinessButton(TypedDict):
+    type: str
+    displayText: NotRequired[str]
+    id: NotRequired[str]
+    url: NotRequired[str]
+    phoneNumber: NotRequired[str]
+    copyCode: NotRequired[str]
+    currency: NotRequired[str]
+    name: NotRequired[str]
+    keyType: NotRequired[str]
+    key: NotRequired[str]
+
+
+class BusinessListRow(TypedDict):
+    title: str
+    description: NotRequired[str]
+    rowId: str
+
+
+class BusinessListSection(TypedDict):
+    title: str
+    rows: list[BusinessListRow]
+
+
+class BusinessCarouselCard(TypedDict):
+    body: str
+    footer: NotRequired[str]
+    imageUrl: NotRequired[str]
+    buttons: list[BusinessButton]
+
+
+class SendButtonsRequest(TypedDict):
+    chatId: str
+    title: str
+    description: NotRequired[str]
+    footer: NotRequired[str]
+    thumbnailUrl: NotRequired[str]
+    buttons: list[BusinessButton]
+    quotedMessageId: NotRequired[str]
+
+
+class SendListRequest(TypedDict):
+    chatId: str
+    title: str
+    description: NotRequired[str]
+    footerText: NotRequired[str]
+    buttonText: str
+    sections: list[BusinessListSection]
+    quotedMessageId: NotRequired[str]
+
+
+class SendCarouselRequest(TypedDict):
+    chatId: str
+    body: str
+    cards: list[BusinessCarouselCard]
+    quotedMessageId: NotRequired[str]

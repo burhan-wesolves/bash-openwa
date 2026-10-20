@@ -5,6 +5,7 @@ import { EngineRegistry } from '../../engine/engine-registry.service';
 import { MessageProjector } from '../session/message-projector.service';
 import { SendTextMessageDto, SendMediaMessageDto, SendAudioMessageDto, MessageResponseDto } from './dto';
 import { SendTemplateMessageDto } from './dto/send-template.dto';
+import { SendButtonsDto, SendListDto, SendCarouselDto } from './dto/interactive-message.dto';
 import { ReplyMessageDto, ClickButtonDto } from './dto/message-actions.dto';
 import { Message } from './entities/message.entity';
 import { HookManager, applySendingGate } from '../../core/hooks';
@@ -215,6 +216,18 @@ export class MessageService implements PluginMessagePort {
 
   sendText(sessionId: string, dto: SendTextMessageDto): Promise<MessageResponseDto> {
     return this.sender.sendText(sessionId, dto);
+  }
+
+  sendButtons(sessionId: string, dto: SendButtonsDto): Promise<MessageResponseDto> {
+    return this.sender.sendButtons(sessionId, dto);
+  }
+
+  sendList(sessionId: string, dto: SendListDto): Promise<MessageResponseDto> {
+    return this.sender.sendList(sessionId, dto);
+  }
+
+  sendCarousel(sessionId: string, dto: SendCarouselDto): Promise<MessageResponseDto> {
+    return this.sender.sendCarousel(sessionId, dto);
   }
 
   sendTemplate(sessionId: string, dto: SendTemplateMessageDto): Promise<MessageResponseDto> {

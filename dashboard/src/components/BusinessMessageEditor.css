@@ -1,0 +1,42 @@
+.business-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.message-tester .toggle-group.toggle-group-wrap.business-presets button {
+  flex: 1 1 auto;
+}
+.business-json {
+  font-family: var(--font-mono, monospace);
+  width: 100%;
+  resize: vertical;
+}
+.business-preview {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.business-preview p {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.business-preview-button {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--primary);
+  text-align: center;
+}
+.business-preview-cards {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+}
+.business-preview-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 180px;
+}

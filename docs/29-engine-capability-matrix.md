@@ -3,7 +3,7 @@
 Three-way comparison of every capability: the **Baileys library** (`@whiskeysockets/baileys`
 7.0.0-rc14), the **whatsapp-web.js library** (1.34.7), and what **OpenWA actually exposes** through
 its adapter layer and REST API — including which "supported" cells only work because OpenWA patches
-the installed library. Coverage is total: all 113 `IWhatsAppEngine` methods (29.4), **all 152
+the installed library. Coverage is total: all 116 `IWhatsAppEngine` methods (29.4), **all 152
 Baileys + 81 whatsapp-web.js library methods** (29.5), all 34 + 31 library events (29.5.4), and all
 12 install-time patches (29.3). If it exists upstream or in OpenWA, it has a row here.
 
@@ -26,7 +26,7 @@ Statuses used in the tables:
 
 Two complementary views:
 
-- **29.4, the OpenWA contract view.** Rows are the 113 `IWhatsAppEngine` methods; use it to see
+- **29.4, the OpenWA contract view.** Rows are the 116 `IWhatsAppEngine` methods; use it to see
   what a REST caller gets per engine. Source of truth: `src/engine/engine-capability-matrix.ts`
   (per-cell `evidence` strings cite the exact library `file:symbol` inspected).
 - **29.5 — the full engine inventory.** Rows are **every method the installed libraries expose**,
@@ -38,14 +38,14 @@ Two complementary views:
 ## 29.2 Adapter architecture
 
 OpenWA never calls a WhatsApp library directly from a controller. Every session owns one engine
-instance behind the neutral `IWhatsAppEngine` interface (113 methods +
+instance behind the neutral `IWhatsAppEngine` interface (116 methods +
 `EngineEventCallbacks`), and all modules go through it:
 
 ```mermaid
 flowchart LR
     subgraph OpenWA["OpenWA"]
         API["REST API controllers"] --> SVC["Modules / services"]
-        SVC --> IF["IWhatsAppEngine - 113 methods"]
+        SVC --> IF["IWhatsAppEngine - 116 methods"]
         IF --> WA["WhatsAppWebJsAdapter"]
         IF --> BA["BaileysAdapter"]
         SVC --> STORE["OpenWA-side stores"]
@@ -215,7 +215,7 @@ opens `if (!channel) return false;` before its try, so its `false` conflates _ch
 _WhatsApp refused_, and the adapter answers 403 for both. That distinction is ours to make in our own
 adapter and involves no library change.
 
-## 29.4 Full capability matrix: the OpenWA contract view (113 methods)
+## 29.4 Full capability matrix: the OpenWA contract view (116 methods)
 
 Legend recap: **✅** supported · **✅🔧ⁿ** supported via OpenWA patch `🔧ⁿ` (29.3) ·
 **❌ gap** adapter-gap · **❌ lib** library-limitation. Column headers carry the engine-wide
@@ -246,23 +246,26 @@ socket is caught by the transport instead. No REST route: the session watchdog p
 
 ### 29.4.2 Sending messages
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| --------------------- | ------------------- | ---------------- | --------------- |
-| `sendTextMessage`     | ✅                  | ✅🔧³            | ✅              |
-| `sendImageMessage`    | ✅                  | ✅               | ✅              |
-| `sendVideoMessage`    | ✅                  | ✅               | ✅              |
-| `sendAudioMessage`    | ✅                  | ✅               | ✅              |
-| `sendDocumentMessage` | ✅                  | ✅               | ✅              |
-| `sendStickerMessage`  | ✅                  | ✅               | ✅              |
-| `sendContactMessage`  | ✅                  | ✅               | ✅              |
-| `sendLocationMessage` | ✅                  | ✅               | ✅              |
-| `sendPollMessage`     | ✅                  | ✅               | ✅              |
-| `sendProduct`         | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `sendCatalog`         | ❌ lib              | ❌ lib           | ❌ not exposed  |
-| `replyToMessage`      | ✅                  | ✅               | ✅              |
-| `forwardMessage`      | ✅                  | ✅               | ✅              |
-| `sendChatState`       | ✅                  | ✅               | ✅              |
-| `sendSeen`            | ✅                  | ✅               | ✅              |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹      | OpenWA REST                                |
+| --------------------- | ------------------- | --------------------- | ------------------------------------------ |
+| `sendTextMessage`     | ✅                  | ✅🔧³                 | ✅                                         |
+| `sendImageMessage`    | ✅                  | ✅                    | ✅                                         |
+| `sendVideoMessage`    | ✅                  | ✅                    | ✅                                         |
+| `sendAudioMessage`    | ✅                  | ✅                    | ✅                                         |
+| `sendDocumentMessage` | ✅                  | ✅                    | ✅                                         |
+| `sendStickerMessage`  | ✅                  | ✅                    | ✅                                         |
+| `sendContactMessage`  | ✅                  | ✅                    | ✅                                         |
+| `sendLocationMessage` | ✅                  | ✅                    | ✅                                         |
+| `sendPollMessage`     | ✅                  | ✅                    | ✅                                         |
+| `sendButtonsMessage`  | ✅                  | ❌ library limitation | Baileys business protobuf + relay metadata |
+| `sendListMessage`     | ✅                  | ❌ library limitation | Baileys business protobuf + relay metadata |
+| `sendCarouselMessage` | ✅                  | ❌ library limitation | Baileys business protobuf + relay metadata |
+| `sendProduct`         | ✅                  | ❌ lib                | ⚠️ baileys only                            |
+| `sendCatalog`         | ❌ lib              | ❌ lib                | ❌ not exposed                             |
+| `replyToMessage`      | ✅                  | ✅                    | ✅                                         |
+| `forwardMessage`      | ✅                  | ✅                    | ✅                                         |
+| `sendChatState`       | ✅                  | ✅                    | ✅                                         |
+| `sendSeen`            | ✅                  | ✅                    | ✅                                         |
 
 ### 29.4.3 Message management
 
@@ -408,8 +411,8 @@ answers 501.
 | `rejectCall`          | ✅                  | ❌ lib           | ⚠️ baileys only |
 | `createCallLink`      | ✅                  | ✅               | ✅              |
 
-**Totals:** 113 methods → 226 adapter cells: **199 ✅, 27 ❌** (2 adapter-gaps, 25
-library-limitations, 0 uncertain) across 26 methods. From the REST caller's side: **89** methods
+**Totals:** 116 methods → 232 adapter cells: **202 ✅, 30 ❌** (2 adapter-gaps, 28
+library-limitations, 0 uncertain) across 29 methods. From the REST caller's side: **89** methods
 work on any engine (87 fully supported + 2 store-backed status reads), **14** are Baileys-only,
 **9** are wwjs-only (the 2 store-backed rows excluded); `sendCatalog`, unavailable on both engines,
 is not exposed. Three of the 89 (`probeLiveness`, `getPhoneNumber`, `getPushName`) are ⚙️ internal and
@@ -447,7 +450,7 @@ Exposure column values:
 | `getMediaHost`                 | 🔩 plumbing                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `readMessages`                 | ✅ `sendSeen`                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `refreshMediaConn`             | 🔩 plumbing                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `relayMessage`                 | 🔩 plumbing                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `relayMessage`                 | ✅ `sendButtonsMessage`, `sendListMessage`, `sendCarouselMessage`; 🔩 plumbing                                                                                                                                                                                                                                                                                                                                              |
 | `requestPlaceholderResend`     | 🔩 plumbing                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `sendMessage`                  | ✅ `sendTextMessage`, `sendImageMessage`, `sendVideoMessage`, `sendAudioMessage`, `sendDocumentMessage`, `sendStickerMessage`, `sendLocationMessage`, `sendContactMessage`, `sendPollMessage`, `sendProduct`, `replyToMessage`, `forwardMessage`, `reactToMessage`, `editMessage`, `deleteMessage`, `pinMessage`, `unpinMessage`, `postTextStatus`, `postImageStatus`, `postVideoStatus`, `postVoiceStatus`, `deleteStatus` |
 | `sendMessageAck`               | 🔩 plumbing                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -849,7 +852,7 @@ OpenWA consumes events by normalizing them into `EngineEventCallbacks`; anything
 | `group_leave`               | ✅           |     | `group_update`         | ✅                                                                              |
 | `group_membership_request`  | ✅           |     |                        |                                                                                 |
 
-## 29.6 The 27 not-available cells in detail
+## 29.6 The 30 not-available cells in detail
 
 Every ❌ in 29.4, with the exact library symbol inspected (full evidence strings:
 `engine-capability-matrix.ts`). All of these throw `EngineNotSupportedError` → HTTP 501 at the
@@ -872,7 +875,7 @@ adapter boundary — none silently stubs.
 | `sendCatalog`           | lib   | `AnyMessageContent` (`Types/Message.d.ts:166-210`) has only `{product}` (single product); the catalog CRUD nodes (`Socket/business.js:294-362`) mutate the catalog, they don't send it.                                                                                                                                                                  |
 | `votePoll`              | lib   | No vote-send helper at all; the library only _decrypts incoming_ votes (`decryptPollVote`). Sending needs a hand-built `proto.Message.PollUpdateMessage` with HMAC-SHA256 encryption keyed by the poll creation's `messageSecret`.                                                                                                                       |
 
-### 29.6.2 wwjs adapter (15 cells)
+### 29.6.2 wwjs adapter (18 cells)
 
 | Method                     | Cause | What's missing (evidence)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -891,6 +894,8 @@ adapter boundary — none silently stubs.
 | `sendCatalog`              | lib   | No `Client.sendCatalog` in `index.d.ts` (0 hits).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `setGroupEphemeral`        | lib   | No disappearing-timer setter (0 hits for `ephemeral` in `index.d.ts`); only the create-time `messageTimer` option (`Client.js:2328`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `clickButton`              | lib   | No interactive button-reply send path; inbound buttons are not exposable as a clickable Client action. Baileys uses `sendMessage({buttonReply})` / `sendMessage({listReply})` for classic prompts. Native-flow `interactiveMessage` replies are unverified.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+Business button, list, and carousel sends (`sendButtonsMessage`, `sendListMessage`, `sendCarouselMessage`) add three library-limitation cells: whatsapp-web.js deprecated buttons/lists and has no carousel sender. OpenWA implements these formats through Baileys protobuf generation and `relayMessage`; see [Business messages](interactive-messages.md).
 
 ## 29.7 Caveats on supported rows
 
@@ -1006,9 +1011,9 @@ adapter boundary — none silently stubs.
 Recomputed from `engine-capability-matrix.ts`, `upstream-surface.snapshot.json`, and a scan of the
 adapter sources — re-derive the same way when anything changes:
 
-- **113** interface methods → **226** adapter cells: **199 ✅** / **27 ❌** (2 adapter-gaps, 25
-  library-limitations, 0 uncertain), spanning **26** methods.
-- Of the 199 ✅ cells, **10 wwjs cells carry an explicit patch dependency** (4 × 🔧² status send,
+- **116** interface methods → **232** adapter cells: **202 ✅** / **30 ❌** (2 adapter-gaps, 28
+  library-limitations, 0 uncertain), spanning **29** methods.
+- Of the 202 ✅ cells, **10 wwjs cells carry an explicit patch dependency** (4 × 🔧² status send,
   1 × 🔧³ channel link preview, 1 × 🔧⁴ ready-sync, 3 × 🔧⁷ participant arity, 1 × 🔧⁹ group
   description) and one baileys cell
   does (1 × 🔧⁶ newsletter-create parse); the whole wwjs column additionally

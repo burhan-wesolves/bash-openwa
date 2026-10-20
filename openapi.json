@@ -4529,6 +4529,518 @@
         ]
       }
     },
+    "/api/sessions/{sessionId}/messages/send-buttons": {
+      "post": {
+        "operationId": "MessageController_sendButtons",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Makes the send safe to retry: within 24 hours, a retry with the same key and body replays the first response (marked `Idempotent-Replayed: true`) instead of sending again. 1-255 visible ASCII characters, unique per session. While the first request runs a retry gets 409 `IDEMPOTENCY_KEY_IN_PROGRESS`; after a failure that may have sent the message it gets 409 `IDEMPOTENCY_OUTCOME_UNKNOWN`. A 4xx or 501 refusal before the engine call frees the key. Errors from an engine send keep it taken regardless of HTTP status, including 409.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendButtonsDto"
+              },
+              "examples": {
+                "mixed": {
+                  "summary": "Reply + URL + copy (bill review)",
+                  "value": {
+                    "chatId": "919876543210@c.us",
+                    "title": "Bill ready for review",
+                    "description": "Electricity bill: ₹331.00",
+                    "buttons": [
+                      {
+                        "type": "reply",
+                        "displayText": "Accept & Save",
+                        "id": "bill_accept_123"
+                      },
+                      {
+                        "type": "url",
+                        "displayText": "Review bill",
+                        "url": "https://example.com/bills/123"
+                      },
+                      {
+                        "type": "copy",
+                        "displayText": "Copy Link",
+                        "copyCode": "https://example.com/bills/123"
+                      }
+                    ]
+                  }
+                },
+                "pix": {
+                  "summary": "Standalone PIX",
+                  "value": {
+                    "chatId": "5511999999999@c.us",
+                    "title": "Pay with PIX",
+                    "buttons": [
+                      {
+                        "type": "pix",
+                        "currency": "BRL",
+                        "name": "Example Store",
+                        "keyType": "email",
+                        "key": "payments@example.com"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload, unsupported destination, or session not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such message: the id is outside the engine's lookup window (roughly the last hundred messages of the chat, or absent from the Baileys store) or the message was revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The session is not connected: an engine exists for it but is not `ready`, meaning disconnected, reconnecting, or still initializing, so the request never reached WhatsApp. Wait for `ready` and retry. A session that was never started answers `400` instead, and the session lifecycle routes answer `409` for a conflicting state rather than this. One window answers this while the session still reads `ready`: WhatsApp Web periodically reloads its own page and the engine re-injects into it, and for those few seconds the answer is a `409` naming the reload; retry shortly.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The decoded base64 media, or the media downloaded from `url`, exceeds the media byte cap (`MEDIA_DOWNLOAD_MAX_BYTES`, 50 MiB by default). A whole request is separately bounded by `BODY_SIZE_LIMIT` (25 mb by default), and base64 inflates by about a third, so a large send usually meets that coarser limit first: the body parser rejects the request before this check runs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`IDEMPOTENCY_KEY_REUSED`: the Idempotency-Key was already used with a different route or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Baileys could not complete the recipient lookup within the request budget. On send routes, no message was handed to WhatsApp for this lookup failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send reply, CTA, mixed reply + CTA, or standalone PIX buttons (Baileys only)",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/messages/send-list": {
+      "post": {
+        "operationId": "MessageController_sendList",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Makes the send safe to retry: within 24 hours, a retry with the same key and body replays the first response (marked `Idempotent-Replayed: true`) instead of sending again. 1-255 visible ASCII characters, unique per session. While the first request runs a retry gets 409 `IDEMPOTENCY_KEY_IN_PROGRESS`; after a failure that may have sent the message it gets 409 `IDEMPOTENCY_OUTCOME_UNKNOWN`. A 4xx or 501 refusal before the engine call frees the key. Errors from an engine send keep it taken regardless of HTTP status, including 409.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendListDto"
+              },
+              "examples": {
+                "menu": {
+                  "summary": "Selectable menu",
+                  "value": {
+                    "chatId": "919876543210@c.us",
+                    "title": "Choose a service",
+                    "buttonText": "View options",
+                    "sections": [
+                      {
+                        "title": "Services",
+                        "rows": [
+                          {
+                            "title": "Billing",
+                            "rowId": "billing"
+                          },
+                          {
+                            "title": "Support",
+                            "rowId": "support"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload, unsupported destination, or session not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such message: the id is outside the engine's lookup window (roughly the last hundred messages of the chat, or absent from the Baileys store) or the message was revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The session is not connected: an engine exists for it but is not `ready`, meaning disconnected, reconnecting, or still initializing, so the request never reached WhatsApp. Wait for `ready` and retry. A session that was never started answers `400` instead, and the session lifecycle routes answer `409` for a conflicting state rather than this. One window answers this while the session still reads `ready`: WhatsApp Web periodically reloads its own page and the engine re-injects into it, and for those few seconds the answer is a `409` naming the reload; retry shortly.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`IDEMPOTENCY_KEY_REUSED`: the Idempotency-Key was already used with a different route or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Baileys could not complete the recipient lookup within the request budget. On send routes, no message was handed to WhatsApp for this lookup failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send an interactive list menu (Baileys only)",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/messages/send-carousel": {
+      "post": {
+        "operationId": "MessageController_sendCarousel",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Makes the send safe to retry: within 24 hours, a retry with the same key and body replays the first response (marked `Idempotent-Replayed: true`) instead of sending again. 1-255 visible ASCII characters, unique per session. While the first request runs a retry gets 409 `IDEMPOTENCY_KEY_IN_PROGRESS`; after a failure that may have sent the message it gets 409 `IDEMPOTENCY_OUTCOME_UNKNOWN`. A 4xx or 501 refusal before the engine call frees the key. Errors from an engine send keep it taken regardless of HTTP status, including 409.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendCarouselDto"
+              },
+              "examples": {
+                "cards": {
+                  "summary": "Two cards with CTA buttons",
+                  "value": {
+                    "chatId": "919876543210@c.us",
+                    "body": "Our plans",
+                    "cards": [
+                      {
+                        "body": "Basic plan",
+                        "buttons": [
+                          {
+                            "type": "url",
+                            "displayText": "View Basic",
+                            "url": "https://example.com/basic"
+                          }
+                        ]
+                      },
+                      {
+                        "body": "Pro plan",
+                        "buttons": [
+                          {
+                            "type": "reply",
+                            "displayText": "Choose Pro",
+                            "id": "choose_pro"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload, unsupported destination, or session not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such message: the id is outside the engine's lookup window (roughly the last hundred messages of the chat, or absent from the Baileys store) or the message was revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The session is not connected: an engine exists for it but is not `ready`, meaning disconnected, reconnecting, or still initializing, so the request never reached WhatsApp. Wait for `ready` and retry. A session that was never started answers `400` instead, and the session lifecycle routes answer `409` for a conflicting state rather than this. One window answers this while the session still reads `ready`: WhatsApp Web periodically reloads its own page and the engine re-injects into it, and for those few seconds the answer is a `409` naming the reload; retry shortly.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The decoded base64 media, or the media downloaded from `url`, exceeds the media byte cap (`MEDIA_DOWNLOAD_MAX_BYTES`, 50 MiB by default). A whole request is separately bounded by `BODY_SIZE_LIMIT` (25 mb by default), and base64 inflates by about a third, so a large send usually meets that coarser limit first: the body parser rejects the request before this check runs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`IDEMPOTENCY_KEY_REUSED`: the Idempotency-Key was already used with a different route or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The active engine cannot serve this operation. It is part of the engine contract, but the engine currently running has no implementation for it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Baileys could not complete the recipient lookup within the request budget. On send routes, no message was handed to WhatsApp for this lookup failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send a carousel of business-message cards (Baileys only)",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/sessions/{sessionId}/messages/send-template": {
       "post": {
         "operationId": "MessageController_sendTemplate",
@@ -20049,6 +20561,269 @@
         "required": [
           "messageId",
           "timestamp"
+        ]
+      },
+      "BusinessButtonDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "reply",
+              "url",
+              "call",
+              "copy",
+              "pix"
+            ]
+          },
+          "displayText": {
+            "type": "string",
+            "description": "Required for reply, URL, call, and copy buttons",
+            "maxLength": 100
+          },
+          "id": {
+            "type": "string",
+            "description": "Required reply callback id",
+            "maxLength": 256
+          },
+          "url": {
+            "type": "string",
+            "description": "Required URL target",
+            "example": "https://example.com/bill",
+            "maxLength": 2048
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Required call target, digits with optional leading +",
+            "maxLength": 21
+          },
+          "copyCode": {
+            "type": "string",
+            "description": "Required copy-button text",
+            "maxLength": 4096
+          },
+          "currency": {
+            "type": "string",
+            "description": "PIX currency; BRL only",
+            "enum": [
+              "BRL"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Required PIX merchant name",
+            "maxLength": 255
+          },
+          "keyType": {
+            "type": "string",
+            "description": "Required PIX key type",
+            "enum": [
+              "phone",
+              "email",
+              "cpf",
+              "cnpj",
+              "random"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "Required PIX payment key",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "SendButtonsDto": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "example": "919876543210@c.us"
+          },
+          "quotedMessageId": {
+            "type": "string",
+            "description": "Quote an earlier message, turning this send into a reply. The id is engine-specific: whatsapp-web.js matches the serialized message id, Baileys matches the raw message key id and can only quote a message it has already stored. An id that cannot be resolved fails the send rather than delivering it unquoted."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "footer": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "description": "Image header URL; fetched through the session proxy and media safety checks",
+            "maxLength": 4096
+          },
+          "buttons": {
+            "minItems": 1,
+            "maxItems": 5,
+            "description": "Up to 3 reply + 2 CTA buttons. PIX must be the only button.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessButtonDto"
+            }
+          }
+        },
+        "required": [
+          "chatId",
+          "title",
+          "buttons"
+        ]
+      },
+      "BusinessListRowDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "rowId": {
+            "type": "string",
+            "description": "Unique callback id within this list",
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "title",
+          "rowId"
+        ]
+      },
+      "BusinessListSectionDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "rows": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessListRowDto"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "rows"
+        ]
+      },
+      "SendListDto": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "example": "919876543210@c.us"
+          },
+          "quotedMessageId": {
+            "type": "string",
+            "description": "Quote an earlier message, turning this send into a reply. The id is engine-specific: whatsapp-web.js matches the serialized message id, Baileys matches the raw message key id and can only quote a message it has already stored. An id that cannot be resolved fails the send rather than delivering it unquoted."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "footerText": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "buttonText": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "sections": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Maximum 10 rows across all sections",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessListSectionDto"
+            }
+          }
+        },
+        "required": [
+          "chatId",
+          "title",
+          "buttonText",
+          "sections"
+        ]
+      },
+      "BusinessCarouselCardDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "footer": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "imageUrl": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "buttons": {
+            "minItems": 1,
+            "maxItems": 3,
+            "description": "Reply/CTA buttons only; no PIX",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessButtonDto"
+            }
+          }
+        },
+        "required": [
+          "body",
+          "buttons"
+        ]
+      },
+      "SendCarouselDto": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "example": "919876543210@c.us"
+          },
+          "quotedMessageId": {
+            "type": "string",
+            "description": "Quote an earlier message, turning this send into a reply. The id is engine-specific: whatsapp-web.js matches the serialized message id, Baileys matches the raw message key id and can only quote a message it has already stored. An id that cannot be resolved fails the send rather than delivering it unquoted."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "cards": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessCarouselCardDto"
+            }
+          }
+        },
+        "required": [
+          "chatId",
+          "body",
+          "cards"
         ]
       },
       "SendTemplateMessageDto": {

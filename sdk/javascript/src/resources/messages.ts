@@ -35,6 +35,9 @@ import type {
   UnpinMessageRequest,
   VotePollRequest,
   SendPollRequest,
+  SendButtonsRequest,
+  SendListRequest,
+  SendCarouselRequest,
   SendTemplateRequest,
   SendTextRequest,
   SuccessResult,
@@ -123,6 +126,30 @@ export class MessagesResource {
       path: `/api/sessions/${encodeSegment(sessionId)}/messages/send-poll`,
       body,
     }, idempotencyKey);
+  }
+
+  /** Send a business buttons message (Baileys only). */
+  sendButtons(sessionId: string, body: SendButtonsRequest, idempotencyKey?: string): Promise<MessageResponse> {
+    return this.client.request<MessageResponse>(
+      { method: 'POST', path: `/api/sessions/${encodeSegment(sessionId)}/messages/send-buttons`, body },
+      idempotencyKey,
+    );
+  }
+
+  /** Send a business list message (Baileys only). */
+  sendList(sessionId: string, body: SendListRequest, idempotencyKey?: string): Promise<MessageResponse> {
+    return this.client.request<MessageResponse>(
+      { method: 'POST', path: `/api/sessions/${encodeSegment(sessionId)}/messages/send-list`, body },
+      idempotencyKey,
+    );
+  }
+
+  /** Send a business carousel message (Baileys only). */
+  sendCarousel(sessionId: string, body: SendCarouselRequest, idempotencyKey?: string): Promise<MessageResponse> {
+    return this.client.request<MessageResponse>(
+      { method: 'POST', path: `/api/sessions/${encodeSegment(sessionId)}/messages/send-carousel`, body },
+      idempotencyKey,
+    );
   }
 
   /** Reply to a specific message. */

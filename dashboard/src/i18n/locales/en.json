@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "None of the newest {{rows}} entries scanned match the search, so nothing was exported. Older entries were not searched."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "These messages require the Baileys engine. Select a ready session before sending.",
+      "buttonsHint": "Up to 3 reply + 2 CTA buttons. Send PIX alone.",
+      "listHint": "Up to 10 list rows across all sections. Each row needs a unique rowId.",
+      "carouselHint": "Up to 10 cards, with 1–3 buttons per card. PIX is unavailable inside cards.",
+      "payload": "Message payload (JSON)",
+      "editHint": "Edit the message content here. The session and recipient come from the form above. API validation checks all fields and limits.",
+      "invalid": "Enter a JSON object with the required message fields. Keep chatId in the recipient form above.",
+      "preview": "Message preview (illustrative)"
+    },
     "title": "Message Tester",
     "subtitle": "Send test messages through the API",
     "compose": "Send Test Message",
@@ -768,6 +785,7 @@
     "phoneHint": "Use international format without spaces",
     "messageType": "Message Type",
     "types": {
+      "business": "Business messages",
       "text": "Text",
       "image": "Image",
       "video": "Video",

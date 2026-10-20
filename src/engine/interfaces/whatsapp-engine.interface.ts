@@ -15,6 +15,7 @@
 // to its own dialect. Full inbound + outbound conformance is being rolled out per-engine.)
 
 import type { ChatKind } from '../identity/wa-id';
+import type { ButtonsInput, ListInput, CarouselInput } from './interactive-message';
 
 export enum EngineStatus {
   DISCONNECTED = 'disconnected',
@@ -1064,6 +1065,11 @@ export interface MessagingCapability {
   sendStickerMessage(chatId: string, media: MediaInput): Promise<MessageResult>;
 
   sendPollMessage(chatId: string, poll: PollInput): Promise<MessageResult>;
+
+  /** Business messages are supported by the Baileys adapter; whatsapp-web.js returns 501. */
+  sendButtonsMessage(chatId: string, input: ButtonsInput): Promise<MessageResult>;
+  sendListMessage(chatId: string, input: ListInput): Promise<MessageResult>;
+  sendCarouselMessage(chatId: string, input: CarouselInput): Promise<MessageResult>;
 
   /**
    * Reply to a message, quoting it. `mentions` tags participants exactly as on the send routes: the

@@ -700,6 +700,23 @@
     "exportNoMatchesTruncated": "Nenhuma das {{rows}} entradas mais recentes verificadas corresponde à busca, então nada foi exportado. As entradas mais antigas não foram verificadas."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "Estas mensagens exigem Baileys. Selecione uma sessão pronta antes de enviar.",
+      "buttonsHint": "Até 3 botões de resposta e 2 CTA. Envie PIX sozinho.",
+      "listHint": "Até 10 linhas no total, com rowId único em cada linha.",
+      "carouselHint": "Até 10 cards com 1–3 botões por card. PIX indisponível nos cards.",
+      "payload": "Conteúdo da mensagem (JSON)",
+      "editHint": "Edite o conteúdo aqui; escolha a sessão e o destinatário acima. A API valida os campos e limites.",
+      "invalid": "Insira um objeto JSON com os campos obrigatórios. Escolha o destinatário acima.",
+      "preview": "Prévia ilustrativa da mensagem"
+    },
     "title": "Testador de mensagens",
     "subtitle": "Envie mensagens de teste pela API",
     "compose": "Enviar mensagem de teste",
@@ -724,6 +741,7 @@
     "phoneHint": "Use formato internacional sem espaços",
     "messageType": "Tipo de mensagem",
     "types": {
+      "business": "Business messages",
       "text": "Texto",
       "image": "Imagem",
       "video": "Vídeo",

@@ -24,6 +24,8 @@ import { ChatMediaArchiveService } from '../chat-media/chat-media-archive.servic
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import { resolveJidCandidates } from '../../engine/identity/jid-candidates';
 import { isMediaUrl, MEDIA_URL_MESSAGE } from '../../common/media/media-url';
+import { SendButtonsDto, SendListDto, SendCarouselDto } from './dto/interactive-message.dto';
+import { validateButtonsInput, validateListInput, validateCarouselInput } from '../../engine/interactive-validation';
 
 /** Default cap on a rendered template's final text; overridable via TEMPLATE_RENDER_MAX_CHARS. */
 export const DEFAULT_TEMPLATE_RENDER_MAX_CHARS = 64 * 1024;
@@ -507,6 +509,65 @@ export class MessageSendService {
       });
     } catch (error) {
       return this.failSend(sessionId, 'poll', message, finalDto, error);
+    }
+    return this.persistSentState(message, result);
+  }
+
+  sendButtons(sessionId: string, dto: SendButtonsDto): Promise<MessageResponseDto> {
+    return this.sendBusiness(
+      sessionId,
+      'buttons',
+      dto,
+      validateButtonsInput,
+      (engine, input) => engine.sendButtonsMessage(input.chatId, input),
+      input => `*${input.title}*${input.description ? `\n\n${input.description}` : ''}`,
+    );
+  }
+
+  sendList(sessionId: string, dto: SendListDto): Promise<MessageResponseDto> {
+    return this.sendBusiness(
+      sessionId,
+      'list',
+      dto,
+      validateListInput,
+      (engine, input) => engine.sendListMessage(input.chatId, input),
+      input => input.description || input.title,
+    );
+  }
+
+  sendCarousel(sessionId: string, dto: SendCarouselDto): Promise<MessageResponseDto> {
+    return this.sendBusiness(
+      sessionId,
+      'carousel',
+      dto,
+      validateCarouselInput,
+      (engine, input) => engine.sendCarouselMessage(input.chatId, input),
+      input => input.body,
+    );
+  }
+
+  private async sendBusiness<T extends { chatId: string; quotedMessageId?: string }>(
+    sessionId: string,
+    kind: string,
+    dto: T,
+    validate: (input: T) => void,
+    send: (engine: IWhatsAppEngine, input: T) => Promise<MessageResult>,
+    body: (input: T) => string,
+  ): Promise<MessageResponseDto> {
+    const { finalDto, engine } = await this.applySendingGate(sessionId, kind, dto, input => validate(input));
+    const message = await this.saveOutgoingMessage(sessionId, {
+      chatId: finalDto.chatId,
+      body: body(finalDto),
+      type: 'text',
+      quotedMessageId: finalDto.quotedMessageId,
+      // Keep the full sent payload for history without exposing outgoing controls as inbound choices.
+      metadata: { businessMessage: { kind, payload: finalDto } },
+    });
+    let result: MessageResult;
+    try {
+      result = await send(engine, finalDto);
+    } catch (error) {
+      return this.failSend(sessionId, kind, message, finalDto, error);
     }
     return this.persistSentState(message, result);
   }

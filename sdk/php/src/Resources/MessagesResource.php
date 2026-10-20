@@ -118,6 +118,24 @@ class MessagesResource
     }
 
     /** @return array<string,mixed> */
+    /** Send a business buttons message (Baileys only). @return array<string,mixed> */
+    public function sendButtons(string $sessionId, array $body, ?string $idempotencyKey = null): array
+    {
+        return $this->http->request('POST', "/api/sessions/{$this->http->encodeSegment($sessionId)}/messages/send-buttons", [], $body, $idempotencyKey);
+    }
+
+    /** Send a business list message (Baileys only). @return array<string,mixed> */
+    public function sendList(string $sessionId, array $body, ?string $idempotencyKey = null): array
+    {
+        return $this->http->request('POST', "/api/sessions/{$this->http->encodeSegment($sessionId)}/messages/send-list", [], $body, $idempotencyKey);
+    }
+
+    /** Send a business carousel message (Baileys only). @return array<string,mixed> */
+    public function sendCarousel(string $sessionId, array $body, ?string $idempotencyKey = null): array
+    {
+        return $this->http->request('POST', "/api/sessions/{$this->http->encodeSegment($sessionId)}/messages/send-carousel", [], $body, $idempotencyKey);
+    }
+
     public function reply(string $sessionId, array $body, ?string $idempotencyKey = null): array
     {
         return $this->http->request('POST', "/api/sessions/{$this->http->encodeSegment($sessionId)}/messages/reply", [], $body, $idempotencyKey);

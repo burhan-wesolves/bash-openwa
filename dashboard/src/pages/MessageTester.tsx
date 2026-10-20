@@ -12,6 +12,8 @@ import {
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
 import { useSessionsQuery, useSessionGroupsQuery } from '../hooks/queries';
+import { BusinessMessageEditor } from '../components/BusinessMessageEditor';
+import { businessPresets, parseBusinessDraft, type BusinessPreset } from '../utils/businessMessages';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
 import {
   BULK_CAPTION_MAX_LENGTH,
@@ -66,6 +68,7 @@ const messageTypes = [
   'contact',
   'sticker',
   'poll',
+  'business',
   'forward',
   'bulk',
 ] as const;
@@ -94,6 +97,7 @@ const mediaAccept: Record<(typeof messageTypes)[number], string> = {
   contact: '*/*',
   sticker: 'image/*',
   poll: '*/*',
+  business: '*/*',
   forward: '*/*',
   bulk: '*/*',
 };
@@ -110,6 +114,7 @@ const fallbackMime: Record<(typeof messageTypes)[number], string> = {
   contact: 'application/octet-stream',
   sticker: 'image/webp',
   poll: 'application/octet-stream',
+  business: 'application/octet-stream',
   forward: 'application/octet-stream',
   bulk: 'application/octet-stream',
 };
@@ -126,7 +131,7 @@ const TERMINAL_BATCH_STATUSES: readonly BatchStatus[] = ['completed', 'cancelled
 export function MessageTester() {
   const { t } = useTranslation();
   useDocumentTitle(t('messageTester.title'));
-  const { canWrite } = useRole();
+  const { canWrite, engineType } = useRole();
   const { data: allSessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
   // A read that never produced a list is not "no ready sessions"; a failed refetch keeps the cached one.
   const sessionsFailed = !!sessionsError && allSessions.length === 0;
@@ -140,6 +145,14 @@ export function MessageTester() {
   const groupSendAbort = useRef<AbortController | null>(null);
   const [messageType, setMessageType] = useState<(typeof messageTypes)[number]>('text');
   const [content, setContent] = useState('');
+  const [businessPreset, setBusinessPreset] = useState<BusinessPreset>('mixed');
+  const [businessJson, setBusinessJson] = useState(() => JSON.stringify(businessPresets.mixed.payload, null, 2));
+  const businessDraft = parseBusinessDraft(businessPresets[businessPreset].kind, businessJson);
+  const businessEngineReady = engineType === 'baileys';
+  const selectBusinessPreset = (preset: BusinessPreset) => {
+    setBusinessPreset(preset);
+    setBusinessJson(JSON.stringify(businessPresets[preset].payload, null, 2));
+  };
   const [mediaUrl, setMediaUrl] = useState('');
   // A locally-picked media file, read as raw base64 (the engine contract — NOT a data: URI). Mutually
   // exclusive with mediaUrl: picking a file clears the URL field; typing a URL drops the file.
@@ -389,6 +402,8 @@ export function MessageTester() {
       captionLength(pollQuestion.trim()) <= POLL_NAME_MAX_LENGTH &&
       pollOptionsFilled.length >= 2 &&
       pollOptionsFilled.every(option => captionLength(option) <= POLL_OPTION_MAX_LENGTH);
+  } else if (messageType === 'business') {
+    formValid = businessDraft !== null && businessEngineReady;
   } else if (messageType === 'forward') {
     formValid = forwardTo.trim().length > 0 && forwardMessageId.trim().length > 0;
   } else if (messageType === 'bulk') {
@@ -562,6 +577,18 @@ export function MessageTester() {
               options: pollOptionsFilled,
               ...(allowMultipleAnswers ? { allowMultipleAnswers: true } : {}),
             });
+          case 'business': {
+            if (!businessDraft || !businessEngineReady) throw new Error(t('messageTester.business.invalid'));
+            switch (businessDraft.kind) {
+              case 'buttons':
+                return messageApi.sendButtons(session, { ...businessDraft.payload, chatId: target });
+              case 'list':
+                return messageApi.sendList(session, { ...businessDraft.payload, chatId: target });
+              case 'carousel':
+                return messageApi.sendCarousel(session, { ...businessDraft.payload, chatId: target });
+            }
+            break;
+          }
           case 'forward': {
             // toChatId passes through as-is when it is a full chat ID; a bare number is resolved
             // through the same check-number flow as the main recipient.
@@ -831,6 +858,17 @@ export function MessageTester() {
                 ))}
               </div>
             </div>
+
+            {messageType === 'business' && (
+              <BusinessMessageEditor
+                preset={businessPreset}
+                json={businessJson}
+                draft={businessDraft}
+                engineReady={businessEngineReady}
+                onPreset={selectBusinessPreset}
+                onJson={setBusinessJson}
+              />
+            )}
 
             {messageType === 'text' && (
               <div className="form-group">

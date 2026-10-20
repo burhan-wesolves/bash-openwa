@@ -46,6 +46,7 @@ afterEach(() => {
   textReads = 0;
   globalThis.fetch = emptyFetch;
   window.sessionStorage.removeItem('openwa_user_role');
+  window.sessionStorage.removeItem('openwa_engine_type');
 });
 
 interface BulkItem {
@@ -115,6 +116,72 @@ function pickMedia(container: HTMLElement, file: File): void {
 function sendButton(): HTMLButtonElement {
   return rtl.screen.getByRole('button', { name: 'Send Message' }) as HTMLButtonElement;
 }
+
+async function renderBusiness(engine = 'baileys') {
+  const sends: { url: string; body: Record<string, unknown> }[] = [];
+  window.sessionStorage.setItem('openwa_user_role', 'operator');
+  window.sessionStorage.setItem('openwa_engine_type', engine);
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/sessions')) return Promise.resolve(jsonResponse([{ id: 's1', name: 'Main', status: 'ready' }]));
+    if (url.includes('/contacts/check/'))
+      return Promise.resolve(jsonResponse({ exists: true, whatsappId: '919876543210@c.us' }));
+    if (/\/messages\/send-(buttons|list|carousel)$/.test(url)) {
+      sends.push({ url, body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+      return Promise.resolve(jsonResponse({ messageId: 'business-1', status: 'sent', timestamp: 1 }, 201));
+    }
+    return Promise.resolve(jsonResponse([]));
+  }) as typeof fetch;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1_000 } } });
+  const { container } = rtl.render(
+    createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
+  );
+  await rtl.screen.findByRole('option', { name: /Main/ });
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Business messages' }));
+  type(container, '#mt-13', '919876543210');
+  return { container, sends };
+}
+
+test('business tester sends the mixed bill preset through send-buttons', async () => {
+  const { sends } = await renderBusiness();
+  await rtl.waitFor(() => assert.equal(sendButton().disabled, false));
+  assert.ok(rtl.screen.getByText('Accept & Save'));
+  rtl.fireEvent.click(sendButton());
+  await rtl.waitFor(() => assert.equal(sends.length, 1));
+  assert.ok(sends[0].url.endsWith('/messages/send-buttons'));
+  assert.equal(sends[0].body.chatId, '919876543210@c.us');
+  assert.deepEqual(
+    (sends[0].body.buttons as { type: string }[]).map(b => b.type),
+    ['reply', 'url', 'copy'],
+  );
+});
+
+test('business tester routes list and carousel presets to their APIs', async () => {
+  const { sends } = await renderBusiness();
+  for (const label of ['List', 'Carousel']) {
+    rtl.fireEvent.click(rtl.screen.getByRole('button', { name: label }));
+    await rtl.waitFor(() => assert.equal(sendButton().disabled, false));
+    rtl.fireEvent.click(sendButton());
+    await rtl.waitFor(() => assert.equal(sends.length, label === 'List' ? 1 : 2));
+    assert.ok(sends.at(-1)!.url.endsWith(`/messages/send-${label.toLowerCase()}`));
+  }
+});
+
+test('business tester blocks malformed JSON and destination overrides', async () => {
+  const { container, sends } = await renderBusiness();
+  for (const json of ['{', '{"title":"Test","buttons":[]}', '{"title":"Test","buttons":[{}],"chatId":"other@c.us"}']) {
+    type(container, '#business-json', json);
+    assert.equal(sendButton().disabled, true);
+  }
+  assert.equal(sends.length, 0);
+});
+
+test('business tester refuses sending on whatsapp-web.js', async () => {
+  const { sends } = await renderBusiness('whatsapp-web.js');
+  assert.equal(sendButton().disabled, true);
+  assert.ok(rtl.screen.getByText(/These messages require the Baileys engine/));
+  assert.equal(sends.length, 0);
+});
 
 /** Render the page, switch to Bulk, and pick a recipients file of `size` bytes. */
 async function pickRecipientsFile(size: number): Promise<{ container: HTMLElement }> {

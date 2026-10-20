@@ -13,6 +13,7 @@ import { type BaileysEngineHost } from './baileys-host';
 import { OwnSendRegistry } from './baileys-own-sends';
 import { BaileysLifecycle } from './baileys-lifecycle';
 import { BaileysMessaging } from './baileys-messaging';
+import type { ButtonsInput, ListInput, CarouselInput } from '../interfaces/interactive-message';
 import { BaileysStatus } from './baileys-status';
 import {
   CallLinkType,
@@ -339,6 +340,18 @@ export class BaileysAdapter implements IWhatsAppEngine {
 
   async sendPollMessage(chatId: string, poll: PollInput): Promise<MessageResult> {
     return this.messaging.sendPollMessage(chatId, poll);
+  }
+
+  sendButtonsMessage(chatId: string, input: ButtonsInput): Promise<MessageResult> {
+    return this.messaging.sendButtonsMessage(chatId, input);
+  }
+
+  sendListMessage(chatId: string, input: ListInput): Promise<MessageResult> {
+    return this.messaging.sendListMessage(chatId, input);
+  }
+
+  sendCarouselMessage(chatId: string, input: CarouselInput): Promise<MessageResult> {
+    return this.messaging.sendCarouselMessage(chatId, input);
   }
 
   async replyToMessage(chatId: string, quotedMsgId: string, text: string, mentions?: string[]): Promise<MessageResult> {

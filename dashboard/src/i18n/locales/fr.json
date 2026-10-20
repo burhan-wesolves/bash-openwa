@@ -750,6 +750,23 @@
     "exportNoMatchesTruncated": "Aucune des {{rows}} entrées les plus récentes parcourues ne correspond à la recherche : rien n'a été exporté. Les entrées plus anciennes n'ont pas été parcourues."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "Ces messages nécessitent Baileys. Choisissez une session prête avant l’envoi.",
+      "buttonsHint": "Jusqu’à 3 boutons de réponse et 2 CTA. Envoyez PIX seul.",
+      "listHint": "Jusqu’à 10 lignes au total avec un rowId unique par ligne.",
+      "carouselHint": "Jusqu’à 10 cartes avec 1–3 boutons par carte. PIX indisponible.",
+      "payload": "Contenu du message (JSON)",
+      "editHint": "Modifiez le contenu ici ; choisissez la session et le destinataire ci-dessus. L’API valide les champs et limites.",
+      "invalid": "Saisissez un objet JSON avec les champs requis. Choisissez le destinataire ci-dessus.",
+      "preview": "Aperçu illustratif du message"
+    },
     "title": "Testeur de messages",
     "subtitle": "Envoyez des messages de test via l'API",
     "compose": "Envoyer un message de test",
@@ -774,6 +791,7 @@
     "phoneHint": "Utilisez le format international sans espaces",
     "messageType": "Type de message",
     "types": {
+      "business": "Business messages",
       "text": "Texte",
       "image": "Image",
       "video": "Vidéo",

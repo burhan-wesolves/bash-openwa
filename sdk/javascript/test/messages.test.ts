@@ -34,6 +34,9 @@ describe('MessagesResource idempotency keys', () => {
     ['send-contact', (c, key) => c.messages.sendContact('s', { chatId: 'c@c.us', contactName: 'A', contactNumber: '628' }, key)],
     ['send-template', (c, key) => c.messages.sendTemplate('s', { chatId: 'c@c.us', templateName: 'welcome', vars: { name: 'A' } }, key)],
     ['send-poll', (c, key) => c.messages.sendPoll('s', { chatId: 'c@c.us', name: 'Question', options: ['A', 'B'] }, key)],
+    ['send-buttons', (c, key) => c.messages.sendButtons('s', { chatId: 'c@c.us', title: 'Review', buttons: [{ type: 'reply', id: 'accept', displayText: 'Accept' }, { type: 'url', url: 'https://example.com', displayText: 'Review' }] }, key)],
+    ['send-list', (c, key) => c.messages.sendList('s', { chatId: 'c@c.us', title: 'Choose', buttonText: 'Options', sections: [{ title: 'Menu', rows: [{ rowId: 'a', title: 'A' }] }] }, key)],
+    ['send-carousel', (c, key) => c.messages.sendCarousel('s', { chatId: 'c@c.us', body: 'Browse', cards: [{ body: 'Card', buttons: [{ type: 'reply', id: 'a', displayText: 'Choose' }] }] }, key)],
     ['reply', (c, key) => c.messages.reply('s', { chatId: 'c@c.us', quotedMessageId: 'q', text: 'reply' }, key)],
     ['forward', (c, key) => c.messages.forward('s', { fromChatId: 'a@c.us', toChatId: 'b@c.us', messageId: 'm' }, key)],
   ];

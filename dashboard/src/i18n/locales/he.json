@@ -757,6 +757,23 @@
     "exportNoMatchesTruncated": "אף אחת מ-{{rows}} הרשומות האחרונות שנסרקו אינה תואמת לחיפוש, ולכן לא יוצא דבר. רשומות ישנות יותר לא נסרקו."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "הודעות אלו דורשות Baileys. יש לבחור סשן מוכן לפני השליחה.",
+      "buttonsHint": "עד 3 כפתורי תשובה ו־2 CTA. יש לשלוח PIX לבדו.",
+      "listHint": "עד 10 שורות בסך הכול, עם rowId ייחודי לכל שורה.",
+      "carouselHint": "עד 10 כרטיסים עם 1–3 כפתורים לכרטיס. ללא PIX.",
+      "payload": "תוכן ההודעה (JSON)",
+      "editHint": "ערכו את התוכן כאן; הסשן והנמען בטופס למעלה. ה־API בודק שדות ומגבלות.",
+      "invalid": "הזינו אובייקט JSON עם שדות החובה. בחרו נמען בטופס למעלה.",
+      "preview": "תצוגה מקדימה להמחשה"
+    },
     "title": "בדיקת הודעות",
     "subtitle": "שליחת הודעות בדיקה דרך ה-API",
     "compose": "שליחת הודעת בדיקה",
@@ -781,6 +798,7 @@
     "phoneHint": "יש להשתמש בפורמט בינלאומי ללא רווחים",
     "messageType": "סוג הודעה",
     "types": {
+      "business": "Business messages",
       "text": "טקסט",
       "image": "תמונה",
       "video": "וידאו",

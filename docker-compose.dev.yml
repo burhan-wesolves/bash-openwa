@@ -295,6 +295,9 @@ services:
       - DASHBOARD_URL=${DASHBOARD_URL:-}
     volumes:
       - ./data:/app/data
+      # Chromium needs Unix symlinks for its profile locks. Windows bind mounts
+      # can reject them with EPERM and report "The browser is already running".
+      - browser-sessions:/app/data/sessions
     restart: unless-stopped
     # Same teardown budget as docker-compose.yml, which has the arithmetic: Docker's 10s default would
     # SIGKILL the container while an engine is still stopping.
@@ -308,6 +311,9 @@ services:
 
   # The dashboard SPA is bundled into the image and served by NestJS on the same port:
   # open http://localhost:2785 — there is no separate dashboard container.
+
+volumes:
+  browser-sessions:
 
 networks:
   default:

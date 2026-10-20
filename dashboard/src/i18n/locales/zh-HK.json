@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "已掃描的最新 {{rows}} 條記錄中沒有與搜尋相符的項目，因此未有匯出任何內容。較早的項目未被搜尋。"
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "這些訊息需要 Baileys 引擎。傳送前請選擇就緒的工作階段。",
+      "buttonsHint": "最多 3 個回覆按鈕及 2 個 CTA 按鈕。PIX 必須單獨傳送。",
+      "listHint": "所有分區合共最多 10 行，每行需要唯一的 rowId。",
+      "carouselHint": "最多 10 張卡片，每張包含 1–3 個按鈕。卡片不支援 PIX。",
+      "payload": "訊息內容（JSON）",
+      "editHint": "在此編輯內容，在上方選擇工作階段及收件人。API 會驗證欄位及限制。",
+      "invalid": "請輸入包含必要欄位的 JSON 物件。請在上方表單選擇收件人。",
+      "preview": "訊息預覽（示意）"
+    },
     "title": "訊息測試器",
     "subtitle": "透過 API 傳送測試訊息",
     "compose": "傳送測試訊息",
@@ -768,6 +785,7 @@
     "phoneHint": "使用不含空格的國際格式",
     "messageType": "訊息類型",
     "types": {
+      "business": "Business messages",
       "text": "文字",
       "image": "圖片",
       "video": "影片",

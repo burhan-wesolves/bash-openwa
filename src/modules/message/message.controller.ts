@@ -19,6 +19,7 @@ import {
   SEND_POLL_BODY_EXAMPLES,
 } from './dto';
 import { SendTemplateMessageDto } from './dto/send-template.dto';
+import { SendButtonsDto, SendListDto, SendCarouselDto, BUSINESS_MESSAGE_EXAMPLES } from './dto/interactive-message.dto';
 import {
   SendBulkMessageDto,
   BulkMessageResponseDto,
@@ -220,6 +221,59 @@ export class MessageController {
   @ApiResponse({ status: 503, description: RECIPIENT_LOOKUP_503 })
   async sendText(@Param('sessionId') sessionId: string, @Body() dto: SendTextMessageDto): Promise<MessageResponseDto> {
     return this.messageService.sendText(sessionId, dto);
+  }
+
+  @ChatScoped('fenced')
+  @Post('send-buttons')
+  @IdempotentSend()
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @ApiOperation({ summary: 'Send reply, CTA, mixed reply + CTA, or standalone PIX buttons (Baileys only)' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiBody({ type: SendButtonsDto, examples: BUSINESS_MESSAGE_EXAMPLES.buttons })
+  @ApiResponse({ status: 201, description: 'Message sent', type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid payload, unsupported destination, or session not active' })
+  @ApiResponse({ status: 404, description: MESSAGE_NOT_FOUND_404 })
+  @ApiResponse({ status: 409, description: ENGINE_NOT_READY_409 })
+  @ApiResponse({ status: 413, description: MEDIA_TOO_LARGE_413 })
+  @ApiResponse({ status: 501, description: ENGINE_NOT_SUPPORTED_501 })
+  @ApiResponse({ status: 503, description: RECIPIENT_LOOKUP_503 })
+  sendButtons(@Param('sessionId') sessionId: string, @Body() dto: SendButtonsDto): Promise<MessageResponseDto> {
+    return this.messageService.sendButtons(sessionId, dto);
+  }
+
+  @ChatScoped('fenced')
+  @Post('send-list')
+  @IdempotentSend()
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @ApiOperation({ summary: 'Send an interactive list menu (Baileys only)' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiBody({ type: SendListDto, examples: BUSINESS_MESSAGE_EXAMPLES.list })
+  @ApiResponse({ status: 201, description: 'Message sent', type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid payload, unsupported destination, or session not active' })
+  @ApiResponse({ status: 404, description: MESSAGE_NOT_FOUND_404 })
+  @ApiResponse({ status: 409, description: ENGINE_NOT_READY_409 })
+  @ApiResponse({ status: 501, description: ENGINE_NOT_SUPPORTED_501 })
+  @ApiResponse({ status: 503, description: RECIPIENT_LOOKUP_503 })
+  sendList(@Param('sessionId') sessionId: string, @Body() dto: SendListDto): Promise<MessageResponseDto> {
+    return this.messageService.sendList(sessionId, dto);
+  }
+
+  @ChatScoped('fenced')
+  @Post('send-carousel')
+  @IdempotentSend()
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @ApiOperation({ summary: 'Send a carousel of business-message cards (Baileys only)' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiBody({ type: SendCarouselDto, examples: BUSINESS_MESSAGE_EXAMPLES.carousel })
+  @ApiResponse({ status: 201, description: 'Message sent', type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid payload, unsupported destination, or session not active' })
+  @ApiResponse({ status: 404, description: MESSAGE_NOT_FOUND_404 })
+  @ApiResponse({ status: 409, description: ENGINE_NOT_READY_409 })
+  @ApiResponse({ status: 413, description: MEDIA_TOO_LARGE_413 })
+  @ApiResponse({ status: 501, description: ENGINE_NOT_SUPPORTED_501 })
+  @ApiResponse({ status: 503, description: RECIPIENT_LOOKUP_503 })
+  sendCarousel(@Param('sessionId') sessionId: string, @Body() dto: SendCarouselDto): Promise<MessageResponseDto> {
+    return this.messageService.sendCarousel(sessionId, dto);
   }
 
   @ChatScoped('fenced')

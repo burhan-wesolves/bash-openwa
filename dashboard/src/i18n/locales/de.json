@@ -744,6 +744,23 @@
     "exportNoMatchesTruncated": "Keiner der neuesten {{rows}} durchsuchten Einträge passt zur Suche, daher wurde nichts exportiert. Ältere Einträge wurden nicht durchsucht."
   },
   "messageTester": {
+    "business": {
+      "presets": "Message presets",
+      "reply": "Reply",
+      "cta": "CTA",
+      "mixed": "Reply + CTA",
+      "pix": "PIX",
+      "list": "List",
+      "carousel": "Carousel",
+      "baileysOnly": "Diese Nachrichten erfordern Baileys. Vor dem Senden eine bereite Sitzung wählen.",
+      "buttonsHint": "Bis zu 3 Antwort- und 2 CTA-Schaltflächen. PIX einzeln senden.",
+      "listHint": "Insgesamt bis zu 10 Zeilen, jeweils mit eindeutiger rowId.",
+      "carouselHint": "Bis zu 10 Karten mit je 1–3 Schaltflächen. Kein PIX in Karten.",
+      "payload": "Nachrichteninhalt (JSON)",
+      "editHint": "Inhalt hier bearbeiten; Sitzung und Empfänger stehen oben. Die API prüft Felder und Grenzen.",
+      "invalid": "Ein JSON-Objekt mit Pflichtfeldern eingeben. Empfänger oben festlegen.",
+      "preview": "Nachrichtenvorschau (beispielhaft)"
+    },
     "title": "Nachrichtentester",
     "subtitle": "Testnachrichten über die API senden",
     "compose": "Testnachricht senden",
@@ -768,6 +785,7 @@
     "phoneHint": "Verwende das internationale Format ohne Leerzeichen",
     "messageType": "Nachrichtentyp",
     "types": {
+      "business": "Business messages",
       "text": "Text",
       "image": "Bild",
       "video": "Video",

@@ -6,6 +6,7 @@ import type { LidMapping } from '../../engine/identity/lid-mapping.entity';
 import { BadRequestException, ExecutionContext, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { from, lastValueFrom } from 'rxjs';
 import { MessageSendService } from './message-send.service';
+import { BUSINESS_MESSAGE_EXAMPLES } from './dto/interactive-message.dto';
 import { Message, MessageDirection, MessageStatus } from './entities/message.entity';
 import { SessionService } from '../session/session.service';
 import { EngineRegistry } from '../../engine/engine-registry.service';
@@ -43,6 +44,9 @@ function createMockEngine() {
     sendLocationMessage: jest.fn().mockResolvedValue(mockEngineResult),
     sendContactMessage: jest.fn().mockResolvedValue(mockEngineResult),
     sendPollMessage: jest.fn().mockResolvedValue(mockEngineResult),
+    sendButtonsMessage: jest.fn().mockResolvedValue(mockEngineResult),
+    sendListMessage: jest.fn().mockResolvedValue(mockEngineResult),
+    sendCarouselMessage: jest.fn().mockResolvedValue(mockEngineResult),
     replyToMessage: jest.fn().mockResolvedValue(mockEngineResult),
     clickButton: jest.fn().mockResolvedValue({ ...mockEngineResult, body: 'Sim' }),
     forwardMessage: jest.fn().mockResolvedValue(mockEngineResult),
@@ -119,6 +123,59 @@ describe('MessageSendService', () => {
     }).compile();
 
     service = module.get<MessageSendService>(MessageSendService);
+  });
+
+  describe('business message sends', () => {
+    const example = BUSINESS_MESSAGE_EXAMPLES.buttons.mixed.value;
+    it('persists a pending payload, passes the sending gate, and updates the confirmed state', async () => {
+      const result = await service.sendButtons('sess-1', example);
+      expect(mockEngine.sendButtonsMessage).toHaveBeenCalledWith(example.chatId, example);
+      expect(hookManager.execute).toHaveBeenCalledWith(
+        'message:sending',
+        expect.objectContaining({ type: 'buttons', input: example }),
+        expect.any(Object),
+      );
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: MessageStatus.PENDING,
+          body: `*${example.title}*\n\n${example.description}`,
+          metadata: { businessMessage: { kind: 'buttons', payload: example } },
+        }),
+      );
+      expect(result.messageId).toBe(mockEngineResult.id);
+      expect(repository.save).toHaveBeenLastCalledWith(expect.objectContaining({ status: MessageStatus.SENT }));
+    });
+    it('dispatches lists and carousels through the same facade', async () => {
+      await service.sendList('sess-1', BUSINESS_MESSAGE_EXAMPLES.list.menu.value);
+      await service.sendCarousel('sess-1', BUSINESS_MESSAGE_EXAMPLES.carousel.cards.value);
+      expect(mockEngine.sendListMessage).toHaveBeenCalled();
+      expect(mockEngine.sendCarouselMessage).toHaveBeenCalled();
+    });
+    it('honors a plugin veto before creating a pending row', async () => {
+      jest.mocked(hookManager.execute!).mockResolvedValueOnce({ continue: false, data: undefined });
+      await expect(service.sendButtons('sess-1', example)).rejects.toThrow('blocked by plugin');
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(mockEngine.sendButtonsMessage).not.toHaveBeenCalled();
+    });
+    it('revalidates a plugin rewrite before persisting or sending', async () => {
+      jest.mocked(hookManager.execute!).mockResolvedValueOnce({
+        continue: true,
+        data: { input: { ...example, buttons: [{ type: 'url', displayText: 'Open', url: 'javascript:bad' }] } },
+      });
+      await expect(service.sendButtons('sess-1', example)).rejects.toThrow('absolute http(s) URL');
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(mockEngine.sendButtonsMessage).not.toHaveBeenCalled();
+    });
+    it('marks an engine refusal failed and fires the failure hook', async () => {
+      mockEngine.sendButtonsMessage.mockRejectedValueOnce(new Error('relay refused'));
+      await expect(service.sendButtons('sess-1', example)).rejects.toThrow('relay refused');
+      expect(repository.save).toHaveBeenLastCalledWith(expect.objectContaining({ status: MessageStatus.FAILED }));
+      expect(hookManager.execute).toHaveBeenCalledWith(
+        'message:failed',
+        expect.objectContaining({ type: 'buttons' }),
+        expect.any(Object),
+      );
+    });
   });
 
   it.each(['engine', 'failure bookkeeping'])('prevents a same-key retry after a dispatched %s error', async stage => {

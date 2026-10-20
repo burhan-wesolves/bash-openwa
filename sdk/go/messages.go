@@ -71,6 +71,21 @@ func (s *MessagesService) SendPoll(ctx context.Context, sessionID string, body S
 	return s.send(ctx, sessionID, "send-poll", body)
 }
 
+// SendButtons sends a business message (Baileys only).
+func (s *MessagesService) SendButtons(ctx context.Context, sessionID string, body SendButtonsRequest) (*MessageResponse, error) {
+	return s.send(ctx, sessionID, "send-buttons", body)
+}
+
+// SendList sends a business message (Baileys only).
+func (s *MessagesService) SendList(ctx context.Context, sessionID string, body SendListRequest) (*MessageResponse, error) {
+	return s.send(ctx, sessionID, "send-list", body)
+}
+
+// SendCarousel sends a business message (Baileys only).
+func (s *MessagesService) SendCarousel(ctx context.Context, sessionID string, body SendCarouselRequest) (*MessageResponse, error) {
+	return s.send(ctx, sessionID, "send-carousel", body)
+}
+
 func (s *MessagesService) send(ctx context.Context, sessionID, segment string, body any) (*MessageResponse, error) {
 	var out MessageResponse
 	err := s.client.do(ctx, "POST", s.base(sessionID)+"/"+segment, nil, body, &out)
