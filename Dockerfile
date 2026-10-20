@@ -264,6 +264,9 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/puppeteer-chrome
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+# Ship the matching OTP plugin outside the persistent data volume. The boot loader installs or
+# upgrades its code in the data volume before scanning, keeping registry settings and instances.
+COPY --from=builder /app/.bundled-plugins ./.bundled-plugins
 
 # Copy the bundled dashboard SPA; ServeStaticModule serves it from this same process/port
 # (app.module.ts resolves dashboard/dist relative to dist/). Single container, single port.

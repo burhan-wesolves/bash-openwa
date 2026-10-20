@@ -5,6 +5,7 @@ node_modules
 .pnp.js
 
 # Build output
+.bundled-plugins/
 dist/
 build/
 .next/

@@ -213,6 +213,7 @@ export class PluginLoaderService implements OnModuleInit, OnApplicationBootstrap
       // Shared BY REFERENCE, like the bridge's maps: the loader's registry reads below and the
       // scanner's writes are one and the same map.
       this.plugins,
+      this.configService.get<string>('plugins.bundledDir') ?? null,
     );
     this.lifecycle = new PluginLifecycle(
       this.logger,

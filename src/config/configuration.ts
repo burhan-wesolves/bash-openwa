@@ -354,6 +354,8 @@ export default () => ({
 
   // Plugin platform configuration
   plugins: {
+    // Built with the fork, outside the persistent volume so a deployment can upgrade old OTP code.
+    bundledDir: path.resolve(__dirname, '../../.bundled-plugins'),
     // Where installed plugin packages live on disk. This MUST resolve to the same tree as the plugin
     // registry (<dataDir>/plugins/registry.json, see PluginStorageService): a plugin's code and its
     // registry entry — status, operator config, secrets, enabledByOperator — are two halves of one

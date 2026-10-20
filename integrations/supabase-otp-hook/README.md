@@ -5,32 +5,41 @@ capability to the host's existing Baileys button sender. Plain text remains the 
 
 ## Build and install
 
-1. Build and deploy **this bash-openwa host**, including the dashboard, with your normal Docker
-   deployment. Older upstream hosts do not expose the button capability to plugins.
-2. Run `npm run package:otp`. The installable archive is
-   `dist/plugins/supabase-otp-hook-0.4.0.zip`.
-3. For a **new** installation, upload the archive through Plugins → Install plugin → Upload.
-   For an **existing** installation, that upload route refuses duplicate IDs. Publish the
-   archive as a release asset on your fork, calculate its SHA-256, and use the admin-only
-   `POST /api/plugins/supabase-otp-hook/update` endpoint with JSON
-   `{"url":"https://your-release-asset-url.zip#sha256=YOUR_64_CHARACTER_DIGEST"}`.
-   This existing staged-update API preserves plugin configuration, activation and enabled
-   state and rolls back a failed update. Back up your OpenWA data first. Keep the existing
-   instance, signing secret and ingress URL. Do not uninstall/recreate the plugin.
-4. Enable the plugin for the sending session. Bind the instance's **Session scope** to a
+1. Build and redeploy **this bash-openwa host** with your normal Docker deployment. Its build
+   packages the matching OTP plugin, and its image includes that package outside the data volume.
+   On startup the host installs it or upgrades an older copy **before** scanning plugins.
+   No separate ZIP upload or release URL is needed for this fork. An equal or newer installed
+   version is kept. Existing settings, enabled/disabled state, session overrides, plugin storage,
+   instance records and signing secrets are preserved. Back up the data volume before upgrading.
+2. Confirm the startup log contains `Installed bundled Supabase Auth OTP v0.4.0` on the first
+   upgraded boot, and the plugin card shows v0.4.0. Refresh the dashboard and reopen Configure.
+   If it still shows an older version, check the deployment uses the updated image and look for
+   `bundled_otp_install_failed` in the server logs (for example, a read-only plugin volume).
+3. Enable the plugin for the sending session if it was disabled. Bind the instance's **Session scope** to a
    real WhatsApp session ID. A hook secret belongs only in the instance's secret field.
-5. Open Plugins → Supabase Auth OTP → Configure → Configuration. Choose Plain text, CTA,
+4. Open Plugins → Supabase Auth OTP → Configure → Configuration. Choose Plain text, CTA,
    or CTA + Reply. Configure the title, body, footer, optional header image, up to two
    CTA buttons (copy, URL, call), and up to three reply labels/callback IDs. Save.
    The Sessions editor also supports per-session overrides; instance JSON config still
    takes precedence where configured. Clear an obsolete override if it masks the editor.
-6. Request one OTP using the existing Supabase script. Inspect the recipient phone and
+5. Request one OTP using the existing Supabase script. Inspect the recipient phone and
    OpenWA logs. A successful hook acknowledgment means queued, not delivered or verified.
 
 CTA sends require a **Baileys session**. whatsapp-web.js rejects button sends. This is a
 protocol-level experimental feature; a relay acknowledgment does not prove that every
 Android, iOS or Web client displays the buttons. The preview is illustrative, not proof
 of client rendering. There is no live WhatsApp CTA test in this repository's unit tests.
+
+The Configuration tab and the Sessions tab's selected-session editor both load the same
+custom UI. Updating only the host without shipping the plugin previously left the old
+plain-text form visible, because that form's schema came from the persistent plugin package.
+
+For development, `npm run start:dev` prepares the bundle before starting Nest's watcher.
+`npm run build` also prepares it for `node dist/main`. If you change plugin sources during
+a watch session, rerun `npm run package:otp` and restart the host. Bump the plugin version
+when changing its code so the startup upgrader recognizes it as newer than the installed copy.
+The generated bundle lives in `.bundled-plugins/`; the manual ZIP remains available at
+`dist/plugins/supabase-otp-hook-0.4.0.zip` for other compatible hosts.
 
 ## Configuration
 
@@ -72,4 +81,5 @@ Get-FileHash .\dist\plugins\supabase-otp-hook-0.4.0.zip -Algorithm SHA256
 ```
 
 The plugin source is maintained in this repository. An upstream catalog update can replace
-it, so package future changes from this source rather than overwriting it from the catalog.
+it. The startup installer respects newer installed versions; use a matching plugin release
+from this fork when you need its editor rather than replacing it from the upstream catalog.

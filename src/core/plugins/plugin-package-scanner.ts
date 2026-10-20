@@ -14,6 +14,7 @@ import { validatePluginManifest } from './plugin-manifest';
 import { PluginStorageService } from './plugin-storage.service';
 import { seedConfigDefaults } from './config-defaults.util';
 import { resolvePluginMainPath, pluginUpdateStagingDirName } from './plugin-paths';
+import { installBundledOtpPlugin } from './bundled-otp-plugin';
 
 // Plugin ids whose bundled-extension code was permanently removed (v0.7 — superseded by the
 // marketplace chat-flow / group-translate; also reserved in plugin-installer). A leftover
@@ -73,6 +74,7 @@ export class PluginPackageScanner {
     // The LOADER's plugin registry, passed BY REFERENCE: mutations here are visible to the loader
     // and to every collaborator that shares the same map.
     private readonly plugins: Map<string, PluginInstance>,
+    private readonly bundlesDir: string | null = null,
   ) {}
 
   /**
@@ -83,6 +85,24 @@ export class PluginPackageScanner {
   scanAtBoot(): void {
     // Load built-in plugins first (synchronous registration)
     this.loadBuiltInPlugins();
+
+    if (this.bundlesDir) {
+      // Reconcile a previous staged swap BEFORE attempting another bundled update.
+      if (fs.existsSync(this.pluginsDir)) this.recoverInterruptedUpdates(this.pluginsDir);
+      try {
+        const version = installBundledOtpPlugin(this.bundlesDir, this.pluginsDir);
+        if (version)
+          this.logger.log(`Installed bundled Supabase Auth OTP v${version}`, { action: 'bundled_otp_installed' });
+      } catch (error) {
+        // An unreadable package or unwritable volume must leave the previously working plugin
+        // available for the normal scan, rather than taking down the gateway.
+        this.logger.error(
+          'Could not install bundled Supabase OTP editor; previous package kept',
+          error instanceof Error ? error.message : String(error),
+          { action: 'bundled_otp_install_failed' },
+        );
+      }
+    }
 
     // Then load user plugins if directory exists
     if (fs.existsSync(this.pluginsDir)) {

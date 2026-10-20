@@ -3,6 +3,7 @@ node_modules/
 dashboard/node_modules/
 
 # Build output — rebuilt inside the image; local output/caches must not leak
+.bundled-plugins/
 # into the builder's `COPY . .` (a stale tsbuildinfo can poison the build)
 dist/
 dashboard/dist/

@@ -51,8 +51,9 @@ Built on a **pluggable architecture**, OpenWA lets you select database engines (
 
 This fork includes a [Supabase OTP plugin with Text, CTA and CTA + Reply modes](./integrations/supabase-otp-hook/README.md).
 Configure copy-code, URL and call buttons, reply callback IDs, message branding and a live preview
-from the plugin dashboard. Build the host and run `npm run package:otp` to produce the installable
-plugin archive. Native button messages require a Baileys session and client rendering must be tested
+from the plugin dashboard. Building this fork bundles the matching plugin; on startup an older
+installed copy is upgraded automatically while its settings and instances are preserved.
+Native button messages require a Baileys session and client rendering must be tested
 on the recipient's WhatsApp application.
 
 ### Session-scoped operator & viewer tokens
