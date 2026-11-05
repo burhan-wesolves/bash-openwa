@@ -2352,7 +2352,7 @@ Delete a message (for everyone by default); also clears the stored record and fl
 
 **Response** `200`
 
-The dashboard Message Tester includes a **Delete for me** action. Enter one Chat ID and the exact message ID; its submit button always sends `forEveryone: false` and supports personal, LID, and group chat IDs. Read-only keys cannot submit it.
+The dashboard Message Tester includes a **Delete for me** action. Choose Personal and enter a phone number, or Group and enter one full group ID ending in `@g.us`, then enter the exact message ID. Personal numbers resolve to the engine’s canonical chat ID (including LID IDs); its submit button always sends `forEveryone: false`. Read-only keys cannot submit it.
 
 To delete only for the connected account, send `"forEveryone": false` to the same route. On Baileys this uses `chatModify({ deleteForMe })`, never a delete-for-everyone protocol message. After confirmation, the raw Baileys message cache is cleared as well, so deleted content cannot be quoted or forwarded through another endpoint. A failed or unconfirmed deletion leaves the local content unchanged.
 

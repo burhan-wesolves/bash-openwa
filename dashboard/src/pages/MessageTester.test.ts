@@ -943,7 +943,9 @@ test('Send stays disabled while a batch cancel is in flight, so its answer canno
   assert.equal(sendButton().disabled, false);
 });
 
-async function renderDeleteTester(options: { viewer?: boolean; fail?: number; gate?: Promise<void> } = {}) {
+async function renderDeleteTester(
+  options: { viewer?: boolean; fail?: number; gate?: Promise<void>; canonicalId?: string; unregistered?: boolean } = {},
+) {
   window.sessionStorage.setItem('openwa_user_role', options.viewer ? 'viewer' : 'operator');
   const calls: { path: string; body?: Record<string, unknown> }[] = [];
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -951,6 +953,10 @@ async function renderDeleteTester(options: { viewer?: boolean; fail?: number; ga
     calls.push({ path, ...(init?.body ? { body: JSON.parse(String(init.body)) as Record<string, unknown> } : {}) });
     if (path.endsWith('/sessions'))
       return Promise.resolve(jsonResponse([{ id: 's1', name: 'Main', status: 'ready', phone: '15550000000' }]));
+    if (path.includes('/contacts/check/'))
+      return Promise.resolve(
+        jsonResponse({ exists: !options.unregistered, whatsappId: options.canonicalId ?? '15550000000@c.us' }),
+      );
     if (path.endsWith('/messages/delete')) {
       const answer = () =>
         jsonResponse(options.fail ? { message: 'Message not found' } : { success: true }, options.fail ?? 200);
@@ -967,39 +973,76 @@ async function renderDeleteTester(options: { viewer?: boolean; fail?: number; ga
   return calls;
 }
 
-function fillDeleteTarget(chatId = '15550000000@c.us', messageId = 'fixture-message') {
-  rtl.fireEvent.change(rtl.screen.getByLabelText('Chat ID containing the message'), { target: { value: chatId } });
+function fillDeleteTarget(phone = '+15550000000', messageId = 'fixture-message') {
+  rtl.fireEvent.change(rtl.screen.getByLabelText('Recipient Phone Number'), { target: { value: phone } });
   rtl.fireEvent.change(rtl.screen.getByLabelText('Message ID to delete'), { target: { value: messageId } });
 }
 
-test('delete-for-me requires both IDs and does not need the send-recipient selector', async () => {
+test('delete-for-me requires a phone number and message ID', async () => {
   await renderDeleteTester();
   const button = rtl.screen.getByRole('button', { name: 'Delete message for me' }) as HTMLButtonElement;
   assert.equal(button.disabled, true);
-  assert.equal(rtl.screen.queryByLabelText('Recipient Phone Number'), null);
-  fillDeleteTarget('15550000000@c.us', '   ');
+  fillDeleteTarget('', 'fixture-message');
+  assert.equal(button.disabled, true);
+  fillDeleteTarget('+15550000000', '   ');
   assert.equal(button.disabled, true);
   fillDeleteTarget();
   await rtl.waitFor(() => assert.equal(button.disabled, false));
   assert.ok(rtl.screen.getByText(/Other participants keep their copy/));
 });
 
-for (const chatId of ['15550000000@c.us', '123456@lid', '120363000@g.us']) {
-  test('delete-for-me sends explicit false to one exact chat: ' + chatId, async () => {
-    const calls = await renderDeleteTester();
-    fillDeleteTarget(' ' + chatId + ' ', ' fixture-message ');
+for (const chatId of ['15550000000@c.us', '123456@lid']) {
+  test('delete-for-me resolves a personal phone number to ' + chatId, async () => {
+    const calls = await renderDeleteTester({ canonicalId: chatId });
+    fillDeleteTarget(' +1 555 000 0000 ', ' fixture-message ');
     rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete message for me' }));
     await rtl.screen.findByText('Message deleted for me');
     const deletes = calls.filter(call => call.path.endsWith('/messages/delete'));
     assert.equal(deletes.length, 1);
     assert.deepEqual(deletes[0].body, { chatId, messageId: 'fixture-message', forEveryone: false });
+    assert.equal(calls.filter(call => call.path.endsWith('/contacts/check/15550000000')).length, 1);
     assert.equal(
-      calls.some(call => /contacts\/check|messages\/send-/.test(call.path)),
+      calls.some(call => /messages\/send-/.test(call.path)),
       false,
     );
     assert.ok(rtl.screen.getByText('HTTP 200'));
   });
 }
+
+test('delete-for-me accepts one group ID without resolving a phone number', async () => {
+  const calls = await renderDeleteTester();
+  fillDeleteTarget();
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Group' }));
+  assert.equal(rtl.screen.queryByLabelText('Recipient Phone Number'), null);
+  const input = rtl.screen.getByLabelText('Group ID');
+  const button = rtl.screen.getByRole('button', { name: 'Delete message for me' }) as HTMLButtonElement;
+  for (const value of ['', '15550000000', '123@c.us', '123@g.us,456@g.us']) {
+    rtl.fireEvent.change(input, { target: { value } });
+    assert.equal(button.disabled, true);
+  }
+  rtl.fireEvent.change(input, { target: { value: ' 120363000@g.us ' } });
+  assert.equal(button.disabled, false);
+  rtl.fireEvent.click(button);
+  await rtl.screen.findByText('Message deleted for me');
+  const deletes = calls.filter(call => call.path.endsWith('/messages/delete'));
+  assert.equal(deletes.length, 1);
+  assert.deepEqual(deletes[0].body, { chatId: '120363000@g.us', messageId: 'fixture-message', forEveryone: false });
+  assert.equal(
+    calls.some(call => /contacts\/check|messages\/send-/.test(call.path)),
+    false,
+  );
+});
+
+test('delete-for-me rejects an unregistered personal number before deletion', async () => {
+  const calls = await renderDeleteTester({ unregistered: true });
+  fillDeleteTarget();
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete message for me' }));
+  await rtl.screen.findByText('Delete failed');
+  assert.equal(
+    calls.some(call => call.path.endsWith('/messages/delete')),
+    false,
+  );
+});
 
 test('delete-for-me displays a route error and does not claim success', async () => {
   const calls = await renderDeleteTester({ fail: 404 });

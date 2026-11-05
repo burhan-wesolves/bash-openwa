@@ -190,7 +190,7 @@ export function MessageTester() {
   const [forwardFrom, setForwardFrom] = useState('');
   const [forwardTo, setForwardTo] = useState('');
   const [forwardMessageId, setForwardMessageId] = useState('');
-  const [deleteChatId, setDeleteChatId] = useState('');
+  const [deleteGroupId, setDeleteGroupId] = useState('');
   const [deleteMessageId, setDeleteMessageId] = useState('');
   const actionPending = useRef(false);
   const [bulkRecipients, setBulkRecipients] = useState('');
@@ -412,7 +412,9 @@ export function MessageTester() {
   } else if (messageType === 'business') {
     formValid = businessDraft !== null && businessEngineReady;
   } else if (messageType === 'deleteForMe') {
-    formValid = deleteChatId.trim().length > 0 && deleteMessageId.trim().length > 0;
+    formValid =
+      deleteMessageId.trim().length > 0 &&
+      (recipientType !== 'group' || /^\d+(?:-\d+)?@g\.us$/.test(deleteGroupId.trim()));
   } else if (messageType === 'forward') {
     formValid = forwardTo.trim().length > 0 && forwardMessageId.trim().length > 0;
   } else if (messageType === 'bulk') {
@@ -437,8 +439,11 @@ export function MessageTester() {
     !session ||
     !formValid ||
     (messageType !== 'bulk' &&
-      messageType !== 'deleteForMe' &&
-      (recipientType === 'group' ? selectedGroups.length === 0 : !recipient));
+      (recipientType === 'group'
+        ? messageType === 'deleteForMe'
+          ? !deleteGroupId.trim()
+          : selectedGroups.length === 0
+        : !recipient.trim()));
 
   // Says why Send is held when a field runs past its bound, counted the way `formValid` counts it.
   const tooLongHint = (value: string, max: number) => {
@@ -499,14 +504,13 @@ export function MessageTester() {
   };
 
   const handleSend = async () => {
-    const targetId = recipientType === 'group' ? (selectedGroups[0] ?? '') : recipient;
-    if (
-      isSendDisabled ||
-      actionPending.current ||
-      !session ||
-      (messageType !== 'bulk' && messageType !== 'deleteForMe' && !targetId)
-    )
-      return;
+    const targetId =
+      recipientType === 'group'
+        ? messageType === 'deleteForMe'
+          ? deleteGroupId.trim()
+          : (selectedGroups[0] ?? '')
+        : recipient.trim();
+    if (isSendDisabled || actionPending.current || !session || (messageType !== 'bulk' && !targetId)) return;
     actionPending.current = true;
     setIsLoading(true);
     setResponse(null);
@@ -516,9 +520,27 @@ export function MessageTester() {
     setBatchError(null);
 
     try {
+      // For a personal recipient, let the engine resolve the number to its canonical chat id rather
+      // than hand-building an engine-specific JID here (#265) — also surfaces unregistered numbers.
+      // Bulk carries its own recipient list, so the shared selector's target is not resolved there.
+      let chatId = targetId;
+      if (messageType !== 'bulk' && recipientType !== 'group') {
+        const resolved = await contactApi.checkNumber(session, targetId.replace(/[^0-9]/g, ''));
+        if (!resolved.exists || !resolved.whatsappId) {
+          setResponse({
+            ...(messageType === 'deleteForMe' ? { action: 'deleteForMe' as const } : {}),
+            success: false,
+            timestamp: new Date().toISOString(),
+            error: t('messageTester.notOnWhatsApp'),
+          });
+          return;
+        }
+        chatId = resolved.whatsappId;
+      }
+
       if (messageType === 'deleteForMe') {
         const result = await messageApi.delete(session, {
-          chatId: deleteChatId.trim(),
+          chatId,
           messageId: deleteMessageId.trim(),
           forEveryone: false,
         });
@@ -531,23 +553,6 @@ export function MessageTester() {
         });
         return;
       }
-      // For a personal recipient, let the engine resolve the number to its canonical chat id rather
-      // than hand-building an engine-specific JID here (#265) — also surfaces unregistered numbers.
-      // Bulk carries its own recipient list, so the shared selector's target is not resolved there.
-      let chatId = targetId;
-      if (messageType !== 'bulk' && recipientType !== 'group') {
-        const resolved = await contactApi.checkNumber(session, targetId.replace(/[^0-9]/g, ''));
-        if (!resolved.exists || !resolved.whatsappId) {
-          setResponse({
-            success: false,
-            timestamp: new Date().toISOString(),
-            error: t('messageTester.notOnWhatsApp'),
-          });
-          return;
-        }
-        chatId = resolved.whatsappId;
-      }
-
       // Bulk is a batch, not a single send: 202 + batchId, then poll progress until terminal.
       if (messageType === 'bulk') {
         const batch = await messageApi.sendBulk(session, {
@@ -794,7 +799,7 @@ export function MessageTester() {
           </div>
 
           {/* Bulk carries its own recipient list, so the single-recipient selector is hidden there. */}
-          {messageType !== 'bulk' && messageType !== 'deleteForMe' && (
+          {messageType !== 'bulk' && (
             <>
               <div className="form-group">
                 {/* A caption, not a label: it names the group, and there is no single control to bind
@@ -826,26 +831,41 @@ export function MessageTester() {
 
               <div className="form-group">
                 {recipientType === 'group' ? (
-                  <>
-                    <span className="group-label" id="group-picker-label">
-                      {t('messageTester.selectGroup')}
-                    </span>
-                    <GroupPicker
-                      groups={groups}
-                      selectedIds={selectedGroups}
-                      onChange={setSelectedGroups}
-                      loading={loadingGroups}
-                      loadFailed={groupsFailed}
-                      limit={BULK_MAX_RECIPIENTS}
-                      labelledBy="group-picker-label"
-                      disabled={isGroupSending}
-                    />
-                    <span className="hint">
-                      {messageType === 'forward'
-                        ? t('messageTester.forwardUsesFirstGroup')
-                        : t('messageTester.selectGroupHint')}
-                    </span>
-                  </>
+                  messageType === 'deleteForMe' ? (
+                    <>
+                      <label htmlFor="mt-delete-group">{t('messageTester.deleteGroupId')}</label>
+                      <input
+                        id="mt-delete-group"
+                        type="text"
+                        value={deleteGroupId}
+                        onChange={e => setDeleteGroupId(e.target.value)}
+                        placeholder="120363000000000000@g.us"
+                        autoComplete="off"
+                      />
+                      <span className="hint">{t('messageTester.deleteGroupIdHint')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="group-label" id="group-picker-label">
+                        {t('messageTester.selectGroup')}
+                      </span>
+                      <GroupPicker
+                        groups={groups}
+                        selectedIds={selectedGroups}
+                        onChange={setSelectedGroups}
+                        loading={loadingGroups}
+                        loadFailed={groupsFailed}
+                        limit={BULK_MAX_RECIPIENTS}
+                        labelledBy="group-picker-label"
+                        disabled={isGroupSending}
+                      />
+                      <span className="hint">
+                        {messageType === 'forward'
+                          ? t('messageTester.forwardUsesFirstGroup')
+                          : t('messageTester.selectGroupHint')}
+                      </span>
+                    </>
+                  )
                 ) : (
                   <>
                     <label htmlFor="mt-13">{t('messageTester.recipientPhone')}</label>
@@ -1094,17 +1114,6 @@ export function MessageTester() {
             {messageType === 'deleteForMe' && (
               <>
                 <p className="hint">{t('messageTester.deleteForMeHint')}</p>
-                <div className="form-group">
-                  <label htmlFor="mt-delete-chat">{t('messageTester.deleteChatId')}</label>
-                  <input
-                    id="mt-delete-chat"
-                    type="text"
-                    value={deleteChatId}
-                    onChange={e => setDeleteChatId(e.target.value)}
-                    placeholder="123456789@c.us or 123456789@g.us"
-                    autoComplete="off"
-                  />
-                </div>
                 <div className="form-group">
                   <label htmlFor="mt-delete-message">{t('messageTester.deleteMessageId')}</label>
                   <input
@@ -1433,7 +1442,9 @@ export function MessageTester() {
             </>
           ) : (
             <div className="response-empty">
-              <p>{t(messageType === 'deleteForMe' ? 'messageTester.deleteForMeEmpty' : 'messageTester.responseEmpty')}</p>
+              <p>
+                {t(messageType === 'deleteForMe' ? 'messageTester.deleteForMeEmpty' : 'messageTester.responseEmpty')}
+              </p>
             </div>
           )}
         </div>
