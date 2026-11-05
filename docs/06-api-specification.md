@@ -2344,13 +2344,15 @@ Delete a message (for everyone by default); also clears the stored record and fl
 | ----------- | ------- | -------- | ------------------------ | ------------------------------------------------------ |
 | chatId      | string  | Yes      | non-empty                | Target chat                                            |
 | messageId   | string  | Yes      | non-empty                | Message to delete                                      |
-| forEveryone | boolean | No       | boolean (default `true`) | Delete for everyone; defaults to `true` in the service |
+| forEveryone | boolean | No       | boolean (default `true`) | Use `false` for delete-for-me; omit for `true`. Explicit `null` is rejected |
 
 ```json
 { "chatId": "628123456789@c.us", "messageId": "true_628123456789@c.us_3EB0ABCD", "forEveryone": true }
 ```
 
 **Response** `200`
+
+To delete only for the connected account, send `"forEveryone": false` to the same route. On Baileys this uses `chatModify({ deleteForMe })`, never a delete-for-everyone protocol message. After confirmation, the raw Baileys message cache is cleared as well, so deleted content cannot be quoted or forwarded through another endpoint. A failed or unconfirmed deletion leaves the local content unchanged.
 
 After the engine delete, the stored message's body and `metadata` (inline media, quote, reactions) are cleared, its archived-media pointer is removed, and its `type` is set to `revoked`, the same as when the engine reports a revoke (`message.revoked`). The archived file itself is deleted later by the chat-media orphan sweep, once it has stayed unreferenced for the sweep's grace window. Note the `200` status (via `@HttpCode`).
 

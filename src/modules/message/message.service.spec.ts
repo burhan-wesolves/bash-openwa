@@ -776,6 +776,13 @@ describe('MessageService', () => {
   });
 
   describe('deleteMessage', () => {
+    it('does not revoke the stored row when the engine fails to confirm delete-for-me', async () => {
+      mockEngine.deleteMessage.mockRejectedValueOnce(new Error('delete not confirmed'));
+      await expect(
+        service.deleteMessage('sess-1', { chatId: 'test@c.us', messageId: 'wa-msg-1', forEveryone: false }),
+      ).rejects.toThrow('delete not confirmed');
+      expect(messageProjector.recordRevoke).not.toHaveBeenCalled();
+    });
     it('should call engine.deleteMessage with forEveryone default true', async () => {
       await service.deleteMessage('sess-1', {
         chatId: 'test@c.us',

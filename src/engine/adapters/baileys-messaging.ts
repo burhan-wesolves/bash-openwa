@@ -85,9 +85,9 @@ export interface BaileysMessagingHost {
   getStoredMessage(messageId: string): Promise<WAMessage | null> | undefined;
   /** Rewrite a stored message in place (see BaileysMessageStore.update); undefined without a store. */
   updateStoredMessage(messageId: string, change: (stored: WAMessage) => WAMessage | null): Promise<void> | undefined;
-  /** Whether this message was deleted for everyone, even where the stored copy does not show it yet. */
+  /** Whether local content was deleted, even where the stored copy does not show it yet. */
   wasDeletedForEveryone(messageId: string): boolean;
-  /** Record a delete for everyone this session just made (see wasDeletedForEveryone). */
+  /** Record a local content tombstone (also used for delete-for-me); this never sends a revoke. */
   markDeletedForEveryone(messageId: string): void;
   /** The text of an edit of this message the stored copy with key `target` does not show yet, if any. */
   pendingEditOf(messageId: string, target: WAMessageKey): string | undefined;
@@ -737,6 +737,12 @@ export class BaileysMessaging {
       'the delete-for-me',
     );
     this.host.recordMessageEdit(previewJid, messageId, '', 'revoked');
+    // A local-only delete must clear the raw cache too: requireStored supplies full content to
+    // replies/forwards, independently of the gateway's neutral revoked row. Reuse the content
+    // tombstone so a delayed echo or failed store write cannot expose the original again. This
+    // changes only local storage; the only WhatsApp operation above is deleteForMe.
+    this.host.markDeletedForEveryone(messageId);
+    await this.changeStored(messageId, stored => ({ ...stored, message: null }));
   }
 
   /**
@@ -1026,7 +1032,7 @@ export class BaileysMessaging {
   /**
    * Resolve a previously-seen message from the store, or throw a clear not-found error.
    *
-   * A message deleted for everyone is kept with its content removed, and is not found here unless
+   * A deleted message (for everyone or for me) is kept with its content removed, and is not found here unless
    * `allowDeleted`: quoting it would hand WhatsApp the deleted content again (Baileys copies the
    * quoted message into the reply's contextInfo), and there is nothing left to forward, react to or
    * edit. A message the session knows was deleted is treated the same while its stored copy still

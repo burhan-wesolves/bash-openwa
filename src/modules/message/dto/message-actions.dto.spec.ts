@@ -102,6 +102,16 @@ describe('message action DTOs', () => {
     expect(await errorsFor(DeleteMessageDto, { chatId: 'x@c.us', messageId: 'm1' })).toHaveLength(0);
   });
 
+  it('DeleteMessageDto: explicit null is rejected instead of defaulting to delete-for-everyone', async () => {
+    const pipe = new ValidationPipe(GLOBAL_VALIDATION_OPTIONS);
+    await expect(
+      pipe.transform(
+        { chatId: 'x@c.us', messageId: 'm1', forEveryone: null },
+        { type: 'body', metatype: DeleteMessageDto },
+      ),
+    ).rejects.toThrow();
+  });
+
   // The service defaults an absent forEveryone to true, so `false` is the only reason to send the
   // field at all. Asserting the VALUE, not just the error count: a form-encoded "false" read as
   // `true` would retract the message from the recipient instead of hiding it locally, and that

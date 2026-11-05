@@ -281,7 +281,7 @@ export class BaileysEvents {
   private readonly inboundInFlight = new Map<string, { key: WAMessageKey; done: Promise<void> }>();
 
   /**
-   * Ids of messages deleted for everyone, oldest first. The stored copy is emptied too, but that can
+   * Ids whose local content was deleted (for everyone or for me), oldest first. The stored copy is emptied too, but that can
    * land late: a delete can overtake the original while it downloads its media, and a repeat delivery
    * can be stored after the delete was applied. Whatever the store holds meanwhile, a message named
    * here is never quoted, forwarded or reacted to, nor stored with its content. Bounded, because the
@@ -313,7 +313,7 @@ export class BaileysEvents {
     this.storeGeneration++;
   }
 
-  /** Whether a delete for everyone of this message was accepted (see deletedForEveryone). */
+  /** Whether a content deletion was accepted. The historical name also covers local-only deletes. */
   wasDeletedForEveryone(messageId: string): boolean {
     return this.deletedForEveryone.has(messageId);
   }
@@ -328,7 +328,7 @@ export class BaileysEvents {
     return edit && this.mayChange(target, edit.envelope, false) ? edit.body : undefined;
   }
 
-  /** Record an accepted delete for everyone of this message (see deletedForEveryone). */
+  /** Record an accepted content deletion, including delete-for-me; never sends or announces a revoke. */
   markDeletedForEveryone(messageId: string): void {
     this.deletedForEveryone.add(messageId);
     if (this.deletedForEveryone.size > BaileysEvents.DELETED_FOR_EVERYONE_LIMIT) {
