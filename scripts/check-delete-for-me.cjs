@@ -39,7 +39,7 @@ const raw = (sessionId, messageId) => {
     assert.equal((await request(prefix + '/delete', 'POST', { ...fixture, forEveryone: value })).status, 400);
   }
   assert.equal((await request(prefix + '/delete', 'POST', { chatId, forEveryone: false })).status, 400);
-  assert.equal((await request(prefix + '/delete', 'POST', { messageId: unknown, forEveryone: false })).status, 400);
+  assert.equal((await request(prefix + '/delete', 'POST', { messageId: unknown, forEveryone: false })).status, 404);
   assert.equal((await request(prefix + '/delete', 'POST', fixture)).status, 404);
   console.log('PASS: authentication, required fields, missing message, and strict mode validation (including null).');
 
@@ -56,7 +56,8 @@ const raw = (sessionId, messageId) => {
     }
   }
 
-  for (const form of [false, true]) {
+  for (const mode of ['json', 'form', 'message-id-only']) {
+    const form = mode === 'form';
     const sent = await request(prefix + '/send-text', 'POST', {
       chatId,
       text: '[OpenWA delete-for-me isolated self-test] ' + randomUUID(),
@@ -74,7 +75,7 @@ const raw = (sessionId, messageId) => {
     const deleted = await request(
       prefix + '/delete',
       'POST',
-      { chatId, messageId, forEveryone: form ? 'false' : false },
+      { ...(mode === 'message-id-only' ? {} : { chatId }), messageId, forEveryone: form ? 'false' : false },
       true,
       form,
     );
@@ -105,11 +106,7 @@ const raw = (sessionId, messageId) => {
     );
     assert.equal((await request(prefix + '/react', 'POST', { chatId, messageId, emoji: '👍' })).status, 404);
     assert.equal((await request(prefix + '/delete', 'POST', { chatId, messageId, forEveryone: false })).status, 200);
-    console.log(
-      'PASS: ' +
-        (form ? 'form-encoded false' : 'JSON false') +
-        ', wrong-chat protection, raw/neutral cleanup, blocked reuse, and repeat delete.',
-    );
+    console.log('PASS: ' + mode + ', wrong-chat protection, raw/neutral cleanup, blocked reuse, and repeat delete.');
   }
   const created = await request('/sessions', 'POST', { name: 'delete-check-' + randomUUID() });
   assert.equal(created.status, 201);

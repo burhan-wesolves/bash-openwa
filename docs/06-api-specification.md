@@ -2342,7 +2342,7 @@ Delete a message (for everyone by default); also clears the stored record and fl
 
 | Field       | Type    | Required | Constraints              | Description                                            |
 | ----------- | ------- | -------- | ------------------------ | ------------------------------------------------------ |
-| chatId      | string  | Yes      | non-empty                | Target chat                                            |
+| chatId      | string  | Conditional | non-empty             | Required unless `forEveryone: false`; otherwise resolved from the stored message |
 | messageId   | string  | Yes      | non-empty                | Message to delete                                      |
 | forEveryone | boolean | No       | boolean (default `true`) | Use `false` for delete-for-me; omit for `true`. Explicit `null` is rejected |
 
@@ -2352,7 +2352,7 @@ Delete a message (for everyone by default); also clears the stored record and fl
 
 **Response** `200`
 
-The dashboard Message Tester includes a **Delete for me** action. Choose Personal and enter a phone number, or Group and enter one full group ID ending in `@g.us`, then enter the exact message ID. Personal numbers resolve to the engine’s canonical chat ID (including LID IDs); its submit button always sends `forEveryone: false`. Read-only keys cannot submit it.
+The dashboard Message Tester includes a **Delete for me** action. Select the session and enter the exact message ID. It always sends `forEveryone: false`, with no phone-number registration check. When `forEveryone` is explicitly `false`, `chatId` may be omitted: the API retrieves it from that session’s stored message, supporting personal/LID/group chats. A message absent from that session returns 404. Delete-for-everyone still requires `chatId`. Read-only keys cannot submit it.
 
 To delete only for the connected account, send `"forEveryone": false` to the same route. On Baileys this uses `chatModify({ deleteForMe })`, never a delete-for-everyone protocol message. After confirmation, the raw Baileys message cache is cleared as well, so deleted content cannot be quoted or forwarded through another endpoint. A failed or unconfirmed deletion leaves the local content unchanged.
 

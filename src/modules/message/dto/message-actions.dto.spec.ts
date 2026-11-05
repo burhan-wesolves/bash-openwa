@@ -98,6 +98,17 @@ describe('message action DTOs', () => {
     expect(errs.some(e => e.property === 'messageId')).toBe(true);
   });
 
+  it('DeleteMessageDto: chat is optional only for explicit delete-for-me', async () => {
+    expect(await errorsFor(DeleteMessageDto, { messageId: 'm1', forEveryone: false })).toHaveLength(0);
+    for (const body of [
+      { messageId: 'm1' },
+      { messageId: 'm1', forEveryone: true },
+      { messageId: 'm1', forEveryone: false, chatId: null },
+    ]) {
+      expect((await errorsFor(DeleteMessageDto, body)).length).toBeGreaterThan(0);
+    }
+  });
+
   it('DeleteMessageDto: forEveryone is optional', async () => {
     expect(await errorsFor(DeleteMessageDto, { chatId: 'x@c.us', messageId: 'm1' })).toHaveLength(0);
   });

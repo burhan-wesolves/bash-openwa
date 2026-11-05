@@ -776,6 +776,30 @@ describe('MessageService', () => {
   });
 
   describe('deleteMessage', () => {
+    it.each(['124855336853635@lid', '120363000@g.us'])(
+      'resolves a stored chat %s without phone lookup',
+      async chatId => {
+        (repository.findOne as jest.Mock).mockResolvedValueOnce({ chatId });
+        await service.deleteMessage('sess-1', { messageId: 'wa-msg-1', forEveryone: false });
+        expect(repository.findOne).toHaveBeenCalledWith({
+          where: { sessionId: 'sess-1', waMessageId: 'wa-msg-1' },
+          select: { chatId: true },
+        });
+        expect(mockEngine.deleteMessage).toHaveBeenCalledWith(chatId, 'wa-msg-1', false);
+        expect(messageProjector.recordRevoke).toHaveBeenCalledWith('sess-1', 'wa-msg-1');
+      },
+    );
+    it('does not delete when the message is absent from the requested session', async () => {
+      await expect(service.deleteMessage('sess-1', { messageId: 'wa-msg-1', forEveryone: false })).rejects.toThrow(
+        'Message not found in this session',
+      );
+      expect(mockEngine.deleteMessage).not.toHaveBeenCalled();
+      expect(messageProjector.recordRevoke).not.toHaveBeenCalled();
+    });
+    it('still requires an explicit chat for delete-for-everyone', async () => {
+      await expect(service.deleteMessage('sess-1', { messageId: 'wa-msg-1' })).rejects.toThrow('chatId is required');
+      expect(mockEngine.deleteMessage).not.toHaveBeenCalled();
+    });
     it('does not revoke the stored row when the engine fails to confirm delete-for-me', async () => {
       mockEngine.deleteMessage.mockRejectedValueOnce(new Error('delete not confirmed'));
       await expect(

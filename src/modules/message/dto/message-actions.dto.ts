@@ -218,10 +218,11 @@ export class ReactMessageDto {
 }
 
 export class DeleteMessageDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Chat ID. May be omitted for delete-for-me to resolve from the stored message.' })
+  @ValidateIf((object: DeleteMessageDto, value: unknown) => object.forEveryone !== false || value !== undefined)
   @IsString()
   @IsNotEmpty()
-  chatId!: string;
+  chatId?: string;
 
   @ApiProperty()
   @IsString()

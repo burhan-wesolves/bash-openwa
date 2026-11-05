@@ -1229,7 +1229,7 @@ export const messageApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  delete: (sessionId: string, data: { chatId: string; messageId: string; forEveryone?: boolean }) =>
+  delete: (sessionId: string, data: { chatId?: string; messageId: string; forEveryone?: boolean }) =>
     request<{ success: boolean }>(`/sessions/${sessionId}/messages/delete`, {
       method: 'POST',
       body: JSON.stringify(data),

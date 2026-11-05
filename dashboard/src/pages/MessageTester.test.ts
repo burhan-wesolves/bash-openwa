@@ -973,73 +973,27 @@ async function renderDeleteTester(
   return calls;
 }
 
-function fillDeleteTarget(phone = '+15550000000', messageId = 'fixture-message') {
-  rtl.fireEvent.change(rtl.screen.getByLabelText('Recipient Phone Number'), { target: { value: phone } });
+function fillDeleteTarget(messageId = 'fixture-message') {
   rtl.fireEvent.change(rtl.screen.getByLabelText('Message ID to delete'), { target: { value: messageId } });
 }
 
-test('delete-for-me requires a phone number and message ID', async () => {
-  await renderDeleteTester();
+test('delete-for-me requires only the message ID and never checks phone registration', async () => {
+  const calls = await renderDeleteTester({ unregistered: true });
   const button = rtl.screen.getByRole('button', { name: 'Delete message for me' }) as HTMLButtonElement;
-  assert.equal(button.disabled, true);
-  fillDeleteTarget('', 'fixture-message');
-  assert.equal(button.disabled, true);
-  fillDeleteTarget('+15550000000', '   ');
-  assert.equal(button.disabled, true);
-  fillDeleteTarget();
-  await rtl.waitFor(() => assert.equal(button.disabled, false));
-  assert.ok(rtl.screen.getByText(/Other participants keep their copy/));
-});
-
-for (const chatId of ['15550000000@c.us', '123456@lid']) {
-  test('delete-for-me resolves a personal phone number to ' + chatId, async () => {
-    const calls = await renderDeleteTester({ canonicalId: chatId });
-    fillDeleteTarget(' +1 555 000 0000 ', ' fixture-message ');
-    rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete message for me' }));
-    await rtl.screen.findByText('Message deleted for me');
-    const deletes = calls.filter(call => call.path.endsWith('/messages/delete'));
-    assert.equal(deletes.length, 1);
-    assert.deepEqual(deletes[0].body, { chatId, messageId: 'fixture-message', forEveryone: false });
-    assert.equal(calls.filter(call => call.path.endsWith('/contacts/check/15550000000')).length, 1);
-    assert.equal(
-      calls.some(call => /messages\/send-/.test(call.path)),
-      false,
-    );
-    assert.ok(rtl.screen.getByText('HTTP 200'));
-  });
-}
-
-test('delete-for-me accepts one group ID without resolving a phone number', async () => {
-  const calls = await renderDeleteTester();
-  fillDeleteTarget();
-  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Group' }));
   assert.equal(rtl.screen.queryByLabelText('Recipient Phone Number'), null);
-  const input = rtl.screen.getByLabelText('Group ID');
-  const button = rtl.screen.getByRole('button', { name: 'Delete message for me' }) as HTMLButtonElement;
-  for (const value of ['', '15550000000', '123@c.us', '123@g.us,456@g.us']) {
-    rtl.fireEvent.change(input, { target: { value } });
-    assert.equal(button.disabled, true);
-  }
-  rtl.fireEvent.change(input, { target: { value: ' 120363000@g.us ' } });
+  assert.equal(rtl.screen.queryByRole('button', { name: 'Group' }), null);
+  assert.equal(button.disabled, true);
+  fillDeleteTarget('   ');
+  assert.equal(button.disabled, true);
+  fillDeleteTarget(' fixture-message ');
   assert.equal(button.disabled, false);
   rtl.fireEvent.click(button);
   await rtl.screen.findByText('Message deleted for me');
   const deletes = calls.filter(call => call.path.endsWith('/messages/delete'));
   assert.equal(deletes.length, 1);
-  assert.deepEqual(deletes[0].body, { chatId: '120363000@g.us', messageId: 'fixture-message', forEveryone: false });
+  assert.deepEqual(deletes[0].body, { messageId: 'fixture-message', forEveryone: false });
   assert.equal(
     calls.some(call => /contacts\/check|messages\/send-/.test(call.path)),
-    false,
-  );
-});
-
-test('delete-for-me rejects an unregistered personal number before deletion', async () => {
-  const calls = await renderDeleteTester({ unregistered: true });
-  fillDeleteTarget();
-  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete message for me' }));
-  await rtl.screen.findByText('Delete failed');
-  assert.equal(
-    calls.some(call => call.path.endsWith('/messages/delete')),
     false,
   );
 });
