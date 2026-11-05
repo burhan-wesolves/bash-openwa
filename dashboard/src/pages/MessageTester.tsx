@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, AlertCircle } from 'lucide-react';
+import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, AlertCircle, Trash2 } from 'lucide-react';
 import {
   messageApi,
   contactApi,
@@ -36,6 +36,7 @@ import { sendSequentially } from '../utils/sendSequentially';
 import './MessageTester.css';
 
 interface ApiResponse {
+  action?: 'deleteForMe';
   success: boolean;
   messageId?: string;
   /** Bulk sends return 202 + a batch instead of a messageId; the panel polls its progress. */
@@ -71,6 +72,7 @@ const messageTypes = [
   'business',
   'forward',
   'bulk',
+  'deleteForMe',
 ] as const;
 
 // The types that share the media upload/URL block (base64 XOR url + mimetype).
@@ -99,6 +101,7 @@ const mediaAccept: Record<(typeof messageTypes)[number], string> = {
   poll: '*/*',
   business: '*/*',
   forward: '*/*',
+  deleteForMe: '*/*',
   bulk: '*/*',
 };
 
@@ -116,6 +119,7 @@ const fallbackMime: Record<(typeof messageTypes)[number], string> = {
   poll: 'application/octet-stream',
   business: 'application/octet-stream',
   forward: 'application/octet-stream',
+  deleteForMe: 'application/octet-stream',
   bulk: 'application/octet-stream',
 };
 
@@ -186,6 +190,9 @@ export function MessageTester() {
   const [forwardFrom, setForwardFrom] = useState('');
   const [forwardTo, setForwardTo] = useState('');
   const [forwardMessageId, setForwardMessageId] = useState('');
+  const [deleteChatId, setDeleteChatId] = useState('');
+  const [deleteMessageId, setDeleteMessageId] = useState('');
+  const actionPending = useRef(false);
   const [bulkRecipients, setBulkRecipients] = useState('');
   const [bulkDelay, setBulkDelay] = useState('');
   const [bulkMediaKind, setBulkMediaKind] = useState<BulkMediaKind>('document');
@@ -205,7 +212,7 @@ export function MessageTester() {
     data: groups = [],
     isLoading: loadingGroups,
     isError: groupsFailed,
-  } = useSessionGroupsQuery(session, recipientType === 'group');
+  } = useSessionGroupsQuery(session, recipientType === 'group' && messageType !== 'deleteForMe');
 
   // Also re-picks when the chosen session leaves the ready list on a refetch: the select would show
   // the first option while every send still went to the dropped one.
@@ -404,6 +411,8 @@ export function MessageTester() {
       pollOptionsFilled.every(option => captionLength(option) <= POLL_OPTION_MAX_LENGTH);
   } else if (messageType === 'business') {
     formValid = businessDraft !== null && businessEngineReady;
+  } else if (messageType === 'deleteForMe') {
+    formValid = deleteChatId.trim().length > 0 && deleteMessageId.trim().length > 0;
   } else if (messageType === 'forward') {
     formValid = forwardTo.trim().length > 0 && forwardMessageId.trim().length > 0;
   } else if (messageType === 'bulk') {
@@ -427,7 +436,9 @@ export function MessageTester() {
     batchCancelling ||
     !session ||
     !formValid ||
-    (messageType !== 'bulk' && (recipientType === 'group' ? selectedGroups.length === 0 : !recipient));
+    (messageType !== 'bulk' &&
+      messageType !== 'deleteForMe' &&
+      (recipientType === 'group' ? selectedGroups.length === 0 : !recipient));
 
   // Says why Send is held when a field runs past its bound, counted the way `formValid` counts it.
   const tooLongHint = (value: string, max: number) => {
@@ -489,7 +500,14 @@ export function MessageTester() {
 
   const handleSend = async () => {
     const targetId = recipientType === 'group' ? (selectedGroups[0] ?? '') : recipient;
-    if (!session || (messageType !== 'bulk' && !targetId)) return;
+    if (
+      isSendDisabled ||
+      actionPending.current ||
+      !session ||
+      (messageType !== 'bulk' && messageType !== 'deleteForMe' && !targetId)
+    )
+      return;
+    actionPending.current = true;
     setIsLoading(true);
     setResponse(null);
     // An earlier batch keeps running server-side, but its polling must not overwrite this response.
@@ -498,6 +516,21 @@ export function MessageTester() {
     setBatchError(null);
 
     try {
+      if (messageType === 'deleteForMe') {
+        const result = await messageApi.delete(session, {
+          chatId: deleteChatId.trim(),
+          messageId: deleteMessageId.trim(),
+          forEveryone: false,
+        });
+        setResponse({
+          action: 'deleteForMe',
+          success: result.success,
+          messageId: deleteMessageId.trim(),
+          timestamp: new Date().toISOString(),
+          status: 200,
+        });
+        return;
+      }
       // For a personal recipient, let the engine resolve the number to its canonical chat id rather
       // than hand-building an engine-specific JID here (#265) — also surfaces unregistered numbers.
       // Bulk carries its own recipient list, so the shared selector's target is not resolved there.
@@ -625,12 +658,14 @@ export function MessageTester() {
       });
     } catch (err) {
       setResponse({
+        ...(messageType === 'deleteForMe' ? { action: 'deleteForMe' as const } : {}),
         success: false,
         timestamp: new Date().toISOString(),
         error: err instanceof Error ? err.message : t('messageTester.sendFailed'),
         status: err instanceof Error ? (err as Error & { status?: number }).status : undefined,
       });
     } finally {
+      actionPending.current = false;
       setIsLoading(false);
     }
   };
@@ -740,7 +775,9 @@ export function MessageTester() {
 
       <div className="tester-panels">
         <div className="compose-panel">
-          <h2 className="eyebrow">{t('messageTester.compose')}</h2>
+          <h2 className="eyebrow">
+            {t(messageType === 'deleteForMe' ? 'messageTester.deleteForMeTitle' : 'messageTester.compose')}
+          </h2>
 
           <div className="form-group">
             <label htmlFor="mt-1">{t('messageTester.session')}</label>
@@ -757,7 +794,7 @@ export function MessageTester() {
           </div>
 
           {/* Bulk carries its own recipient list, so the single-recipient selector is hidden there. */}
-          {messageType !== 'bulk' && (
+          {messageType !== 'bulk' && messageType !== 'deleteForMe' && (
             <>
               <div className="form-group">
                 {/* A caption, not a label: it names the group, and there is no single control to bind
@@ -1054,6 +1091,34 @@ export function MessageTester() {
               </>
             )}
 
+            {messageType === 'deleteForMe' && (
+              <>
+                <p className="hint">{t('messageTester.deleteForMeHint')}</p>
+                <div className="form-group">
+                  <label htmlFor="mt-delete-chat">{t('messageTester.deleteChatId')}</label>
+                  <input
+                    id="mt-delete-chat"
+                    type="text"
+                    value={deleteChatId}
+                    onChange={e => setDeleteChatId(e.target.value)}
+                    placeholder="123456789@c.us or 123456789@g.us"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="mt-delete-message">{t('messageTester.deleteMessageId')}</label>
+                  <input
+                    id="mt-delete-message"
+                    type="text"
+                    value={deleteMessageId}
+                    onChange={e => setDeleteMessageId(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <span className="hint">{t('messageTester.deleteMessageIdHint')}</span>
+                </div>
+              </>
+            )}
+
             {messageType === 'forward' && (
               <>
                 <div className="form-group">
@@ -1203,8 +1268,18 @@ export function MessageTester() {
           </fieldset>
 
           <button className="send-btn" onClick={handleSend} disabled={isSendDisabled}>
-            {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-            {isLoading ? t('messageTester.sending') : canWrite ? t('messageTester.send') : t('messageTester.viewOnly')}
+            {isLoading ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : messageType === 'deleteForMe' ? (
+              <Trash2 size={18} />
+            ) : (
+              <Send size={18} />
+            )}
+            {!canWrite
+              ? t('messageTester.viewOnly')
+              : messageType === 'deleteForMe'
+                ? t(isLoading ? 'messageTester.deletingForMe' : 'messageTester.deleteForMeAction')
+                : t(isLoading ? 'messageTester.sending' : 'messageTester.send')}
           </button>
           <div className="group-send-status">
             <span role="status">{groupSendProgress ? t('messageTester.sendingProgress', groupSendProgress) : ''}</span>
@@ -1230,12 +1305,24 @@ export function MessageTester() {
                 {response.success ? (
                   <>
                     <CheckCircle size={20} />
-                    <span>{t('messageTester.successLabel')}</span>
+                    <span>
+                      {t(
+                        response.action === 'deleteForMe'
+                          ? 'messageTester.deleteForMeSuccess'
+                          : 'messageTester.successLabel',
+                      )}
+                    </span>
                   </>
                 ) : (
                   <>
                     <XCircle size={20} />
-                    <span>{t('messageTester.failedLabel')}</span>
+                    <span>
+                      {t(
+                        response.action === 'deleteForMe'
+                          ? 'messageTester.deleteForMeFailed'
+                          : 'messageTester.failedLabel',
+                      )}
+                    </span>
                   </>
                 )}
                 {/* `<code>` earns both halves from index.css with no new rule: a monospace face, and the
@@ -1346,7 +1433,7 @@ export function MessageTester() {
             </>
           ) : (
             <div className="response-empty">
-              <p>{t('messageTester.responseEmpty')}</p>
+              <p>{t(messageType === 'deleteForMe' ? 'messageTester.deleteForMeEmpty' : 'messageTester.responseEmpty')}</p>
             </div>
           )}
         </div>

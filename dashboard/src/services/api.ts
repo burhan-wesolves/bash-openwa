@@ -1098,15 +1098,29 @@ export const apiKeyApi = {
 // =============================================================================
 
 export interface LogFilters {
-  action?: string; severity?: string; source?: string; event?: string; outcome?: string;
-  sessionId?: string; webhookId?: string; deliveryId?: string; eventId?: string; search?: string;
-  startDate?: string; endDate?: string; sortBy?: string; sortOrder?: string; limit?: number; offset?: number;
+  action?: string;
+  severity?: string;
+  source?: string;
+  event?: string;
+  outcome?: string;
+  sessionId?: string;
+  webhookId?: string;
+  deliveryId?: string;
+  eventId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export const logsApi = {
   list: (params: LogFilters = {}) => {
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') query.set(key, String(value));
+    for (const [key, value] of Object.entries(params))
+      if (value !== undefined && value !== '') query.set(key, String(value));
     return request<{ data: AuditLog[]; total: number; limit: number; offset: number }>(`/logs?${query}`);
   },
 };
@@ -1216,7 +1230,7 @@ export const messageApi = {
       body: JSON.stringify(data),
     }),
   delete: (sessionId: string, data: { chatId: string; messageId: string; forEveryone?: boolean }) =>
-    request<void>(`/sessions/${sessionId}/messages/delete`, {
+    request<{ success: boolean }>(`/sessions/${sessionId}/messages/delete`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

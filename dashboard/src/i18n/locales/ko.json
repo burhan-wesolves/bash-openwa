@@ -797,6 +797,16 @@
     "exportNoMatchesTruncated": "검사한 최신 항목 {{rows}}개 중 검색과 일치하는 항목이 없어 아무것도 내보내지 않았습니다. 이전 항목은 검색하지 않았습니다."
   },
   "messageTester": {
+    "deleteForMeEmpty": "Delete a test message to see the API response",
+    "deleteForMeTitle": "Delete a test message",
+    "deleteForMeHint": "Delete a message only for this connected account. Other participants keep their copy.",
+    "deleteChatId": "Chat ID containing the message",
+    "deleteMessageId": "Message ID to delete",
+    "deleteMessageIdHint": "Paste the exact message ID from a send response or incoming-message event.",
+    "deleteForMeAction": "Delete message for me",
+    "deletingForMe": "Deleting for me...",
+    "deleteForMeSuccess": "Message deleted for me",
+    "deleteForMeFailed": "Delete failed",
     "business": {
       "presets": "Message presets",
       "reply": "Reply",
@@ -838,6 +848,7 @@
     "phoneHint": "공백 없이 국제 형식으로 입력하세요",
     "messageType": "메시지 유형",
     "types": {
+      "deleteForMe": "Delete for me",
       "business": "Business messages",
       "text": "텍스트",
       "image": "이미지",

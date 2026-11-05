@@ -797,6 +797,16 @@
     "exportNoMatchesTruncated": "जाँची गई नवीनतम {{rows}} प्रविष्टियों में से कोई भी खोज से मेल नहीं खाती, इसलिए कुछ भी निर्यात नहीं किया गया। पुरानी प्रविष्टियाँ खोजी नहीं गईं।"
   },
   "messageTester": {
+    "deleteForMeEmpty": "Delete a test message to see the API response",
+    "deleteForMeTitle": "Delete a test message",
+    "deleteForMeHint": "Delete a message only for this connected account. Other participants keep their copy.",
+    "deleteChatId": "Chat ID containing the message",
+    "deleteMessageId": "Message ID to delete",
+    "deleteMessageIdHint": "Paste the exact message ID from a send response or incoming-message event.",
+    "deleteForMeAction": "Delete message for me",
+    "deletingForMe": "Deleting for me...",
+    "deleteForMeSuccess": "Message deleted for me",
+    "deleteForMeFailed": "Delete failed",
     "business": {
       "presets": "Message presets",
       "reply": "Reply",
@@ -838,6 +848,7 @@
     "phoneHint": "बिना स्पेस के अंतर्राष्ट्रीय प्रारूप का उपयोग करें",
     "messageType": "संदेश प्रकार",
     "types": {
+      "deleteForMe": "Delete for me",
       "business": "Business messages",
       "text": "टेक्स्ट",
       "image": "छवि",

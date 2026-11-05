@@ -797,6 +797,16 @@
     "exportNoMatchesTruncated": "పరిశీలించిన తాజా {{rows}} ఎంట్రీలలో ఏదీ శోధనకు సరిపోలలేదు, కాబట్టి ఏదీ ఎక్స్‌పోర్ట్ చేయబడలేదు. పాత ఎంట్రీలు శోధించబడలేదు."
   },
   "messageTester": {
+    "deleteForMeEmpty": "Delete a test message to see the API response",
+    "deleteForMeTitle": "Delete a test message",
+    "deleteForMeHint": "Delete a message only for this connected account. Other participants keep their copy.",
+    "deleteChatId": "Chat ID containing the message",
+    "deleteMessageId": "Message ID to delete",
+    "deleteMessageIdHint": "Paste the exact message ID from a send response or incoming-message event.",
+    "deleteForMeAction": "Delete message for me",
+    "deletingForMe": "Deleting for me...",
+    "deleteForMeSuccess": "Message deleted for me",
+    "deleteForMeFailed": "Delete failed",
     "business": {
       "presets": "Message presets",
       "reply": "Reply",
@@ -838,6 +848,7 @@
     "phoneHint": "ఖాళీలు (spaces) లేకుండా అంతర్జాతీయ ఆకృతిని ఉపయోగించండి",
     "messageType": "సందేశం రకం",
     "types": {
+      "deleteForMe": "Delete for me",
       "business": "Business messages",
       "text": "టెక్స్ట్",
       "image": "చిత్రం (Image)",

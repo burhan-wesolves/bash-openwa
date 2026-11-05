@@ -822,6 +822,16 @@
     "exportNoMatchesTruncated": "لا يطابق البحث أيًّا من أحدث {{rows}} إدخال تم فحصها، لذا لم يُصدَّر شيء. لم يشمل البحث الإدخالات الأقدم."
   },
   "messageTester": {
+    "deleteForMeEmpty": "Delete a test message to see the API response",
+    "deleteForMeTitle": "Delete a test message",
+    "deleteForMeHint": "Delete a message only for this connected account. Other participants keep their copy.",
+    "deleteChatId": "Chat ID containing the message",
+    "deleteMessageId": "Message ID to delete",
+    "deleteMessageIdHint": "Paste the exact message ID from a send response or incoming-message event.",
+    "deleteForMeAction": "Delete message for me",
+    "deletingForMe": "Deleting for me...",
+    "deleteForMeSuccess": "Message deleted for me",
+    "deleteForMeFailed": "Delete failed",
     "business": {
       "presets": "Message presets",
       "reply": "Reply",
@@ -863,6 +873,7 @@
     "phoneHint": "استخدم الصيغة الدولية بدون مسافات",
     "messageType": "نوع الرسالة",
     "types": {
+      "deleteForMe": "Delete for me",
       "business": "Business messages",
       "text": "نص",
       "image": "صورة",

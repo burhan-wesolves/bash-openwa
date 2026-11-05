@@ -753,6 +753,16 @@
     "exportNoMatchesTruncated": "Ninguna de las {{rows}} entradas más recientes revisadas coincide con la búsqueda, así que no se exportó nada. Las entradas más antiguas no se revisaron."
   },
   "messageTester": {
+    "deleteForMeEmpty": "Delete a test message to see the API response",
+    "deleteForMeTitle": "Delete a test message",
+    "deleteForMeHint": "Delete a message only for this connected account. Other participants keep their copy.",
+    "deleteChatId": "Chat ID containing the message",
+    "deleteMessageId": "Message ID to delete",
+    "deleteMessageIdHint": "Paste the exact message ID from a send response or incoming-message event.",
+    "deleteForMeAction": "Delete message for me",
+    "deletingForMe": "Deleting for me...",
+    "deleteForMeSuccess": "Message deleted for me",
+    "deleteForMeFailed": "Delete failed",
     "business": {
       "presets": "Message presets",
       "reply": "Reply",
@@ -794,6 +804,7 @@
     "phoneHint": "Usa formato internacional sin espacios",
     "messageType": "Tipo de mensaje",
     "types": {
+      "deleteForMe": "Delete for me",
       "business": "Business messages",
       "text": "Texto",
       "image": "Imagen",
