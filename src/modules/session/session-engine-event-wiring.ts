@@ -306,7 +306,7 @@ export class SessionEngineEventWiring {
         host.eventsGateway.emitCallReceived(id, payload);
         void host.webhookService.dispatch(id, 'call.received', payload);
         // Opt-in auto-reject runs AFTER the dispatch so a reject failure can never eat the event.
-        void host.leafEvents.maybeAutoRejectCall(id, engine, event.callId);
+        void host.leafEvents.maybeAutoRejectCall(id, engine, event.callId, event.from);
       },
       onReconnecting: (attempt: number, nextDelayMs: number): void => {
         if (!host.isLiveEngine(id, engine)) return;

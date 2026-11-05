@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Search, Filter, Loader2, FileText, AlertCircle } from 'lucide-react';
-import type { AuditLog } from '../services/api';
-import { auditApi } from '../services/api';
+import { Download, Search, Loader2, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import { logsApi, type AuditLog, type LogFilters } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useToast } from '../hooks/useToast';
 import { useLogsQuery } from '../hooks/queries';
@@ -17,223 +16,248 @@ export function Logs() {
   const { t, i18n } = useTranslation();
   const toast = useToast();
   useDocumentTitle(t('logs.title'));
-  const [searchQuery, setSearchQuery] = useState('');
-  const [severityFilter, setSeverityFilter] = useState('all');
+  const [filters, setFilters] = useState<LogFilters>({ sortBy: 'createdAt', sortOrder: 'DESC' });
+  const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
   const limit = 20;
-
-  const severityParam = severityFilter !== 'all' ? severityFilter : undefined;
-  const { data, isLoading: loading, isError: logsError } = useLogsQuery({ severity: severityParam, page, limit });
-  const logs: AuditLog[] = data?.data ?? [];
-  const total: number = data?.total ?? 0;
-
-  // Trimmed once, so the table, its empty state and the export agree on whether a search is active.
-  const q = searchQuery.trim().toLowerCase();
-  const matchesSearch = (log: AuditLog) =>
-    log.action.toLowerCase().includes(q) || (log.errorMessage || '').toLowerCase().includes(q);
-  const filteredLogs = logs.filter(matchesSearch);
-
+  const setFilter = (key: keyof LogFilters, value: string) => {
+    setFilters(current => ({ ...current, [key]: value || undefined }));
+    setPage(1);
+  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters(current => ({ ...current, search: searchInput.trim() || undefined }));
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+  const { data, isLoading, isError, refetch, isFetching } = useLogsQuery({ ...filters, page, limit });
+  const logs = data?.data ?? [];
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
-  // Distinguish "filters matched nothing on this page" from "there are no logs at all": the search
-  // box only filters the fetched page (the API has no text search), so a non-match here must not
-  // read as "no such event exists" while more pages may hold it.
-  const hasSearch = q !== '';
-  // Severity is enforced SERVER-SIDE (the query carries it): an empty result there means no logs
-  // match at all, which deserves different guidance than the page-local search box.
-  const hasSeverityFilter = severityFilter !== 'all';
-
-  const formatTimestamp = (date: string) => new Date(date).toLocaleString();
-
-  const buildCsv = (rows: AuditLog[]): string => {
-    const headers = [
-      'timestamp',
-      'action',
-      'severity',
-      'session',
-      'apiKey',
-      'ip',
-      'method',
-      'path',
-      'statusCode',
-      'errorMessage',
-    ];
-    const lines = rows.map(log =>
-      [
-        log.createdAt,
-        log.action,
-        log.severity,
-        log.sessionName || log.sessionId || '',
-        log.apiKeyName || log.apiKeyId || '',
-        log.ipAddress,
-        log.method,
-        log.path,
-        log.statusCode,
-        log.errorMessage,
-      ]
-        .map(escapeCsvCell)
-        .join(','),
-    );
-    return [headers.join(','), ...lines].join('\n');
-  };
-
-  const download = (csv: string) => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `openwa-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Export the WHOLE audit history (honouring the active severity filter + search), not just the
-  // current page — paginate through the API up to a safety cap so a huge table can't OOM the tab. On
-  // a fetch error, report it and download nothing: the rows on screen would pass for the full export.
-  const handleExportCsv = async () => {
+  const activity = (key: string) => t('logs.activity.' + key);
+  const select = (key: keyof LogFilters, choices: string[]) => (
+    <label className="log-filter-label">
+      <span>{activity(key)}</span>
+      <CustomSelect
+        value={String(filters[key] ?? '')}
+        onChange={value => setFilter(key, value)}
+        options={choices.map(value => ({ value, label: value ? activity(value) : activity('all') }))}
+      />
+    </label>
+  );
+  const exportCsv = async () => {
     if (exporting) return;
     setExporting(true);
     try {
-      const { items, truncated, throttled } = await fetchAllPages<AuditLog>((limit, offset) =>
-        auditApi.list({ severity: severityParam, limit, offset }),
+      const snapshot = { ...filters, endDate: filters.endDate ?? new Date().toISOString() };
+      const { items, truncated, throttled } = await fetchAllPages<AuditLog>((take, offset) =>
+        logsApi.list({ ...snapshot, limit: take, offset }),
       );
-      // The walk pages by offset over a live table, newest first: a row written between two pages pushes
-      // the older ones down, so the next page starts with one already fetched. Keep each id once.
-      const all = [...new Map(items.map(log => [log.id, log])).values()];
-      const rows = all.filter(matchesSearch);
-      // Either stop keeps the newest rows (the API orders newest first); older ones are missing. A
-      // narrower filter gets past the cap, only waiting gets past the throttle. The count follows the UI
-      // language, not the browser's locale, so it reads right inside the sentence.
-      const rowCount = all.length.toLocaleString(i18n.resolvedLanguage);
-      if (rows.length === 0) {
-        // After a truncated walk the older rows were never searched, so the message must not read as
-        // a verdict on the whole history.
-        if (truncated) toast.warning(t('logs.exportNoMatchesTruncated', { rows: rowCount }));
-        else toast.info(t('logs.exportNoMatches'));
+      const rows = [...new Map(items.map(log => [log.id, log])).values()];
+      if (!rows.length) {
+        toast.info(t('logs.exportNoMatches'));
         return;
       }
-      download(buildCsv(rows));
-      if (truncated) {
-        toast.warning(t(throttled ? 'logs.exportThrottled' : 'logs.exportTruncated', { rows: rowCount }));
-      }
-    } catch (err) {
-      toast.error(t('logs.exportFailed'), err instanceof Error ? err.message : undefined);
+      const columns = [
+        'timestamp',
+        'source',
+        'action',
+        'event',
+        'sessionId',
+        'webhookId',
+        'deliveryId',
+        'outcome',
+        'attempt',
+        'statusCode',
+        'durationMs',
+        'error',
+      ];
+      const csv = [
+        columns.join(','),
+        ...rows.map(log =>
+          [
+            log.createdAt,
+            log.metadata?.source ?? 'audit',
+            log.action,
+            log.metadata?.event,
+            log.sessionId,
+            log.metadata?.webhookId,
+            log.metadata?.deliveryId,
+            log.metadata?.outcome,
+            log.metadata?.attempt,
+            log.statusCode,
+            log.metadata?.durationMs,
+            log.errorMessage,
+          ]
+            .map(value => escapeCsvCell(value == null ? '' : String(value)))
+            .join(','),
+        ),
+      ].join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'openwa-logs-' + new Date().toISOString().slice(0, 10) + '.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      if (truncated)
+        toast.warning(
+          t(throttled ? 'logs.exportThrottled' : 'logs.exportTruncated', {
+            rows: rows.length.toLocaleString(i18n.resolvedLanguage),
+          }),
+        );
+    } catch (error) {
+      toast.error(t('logs.exportFailed'), error instanceof Error ? error.message : undefined);
     } finally {
       setExporting(false);
     }
   };
-
   return (
     <div className="logs-page">
       <PageHeader
         title={t('logs.title')}
-        subtitle={t('logs.subtitle')}
+        subtitle={activity('subtitle')}
         actions={
-          <button className="btn-secondary" onClick={() => void handleExportCsv()} disabled={exporting || total === 0}>
-            {exporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-            {t('logs.exportCsv')}
-          </button>
+          <>
+            <button className="btn-secondary" onClick={() => void refetch()} disabled={isFetching}>
+              <RefreshCw size={18} />
+              {activity('refresh')}
+            </button>
+            <button className="btn-secondary" onClick={() => void exportCsv()} disabled={exporting || total === 0}>
+              {exporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              {t('logs.exportCsv')}
+            </button>
+          </>
         }
       />
-
-      {logsError && (
+      {isError && (
         <div className="error-banner" role="alert">
           <AlertCircle size={20} />
-          <span className="error-banner-text">{t('dashboard.loadError')}</span>
+          <span>{t('dashboard.loadError')}</span>
         </div>
       )}
-
-      <div className="filters-bar">
+      <div className="filters-bar activity-filters">
         <div className="search-input">
           <Search size={18} />
           <input
-            type="text"
-            placeholder={t('logs.searchPlaceholder')}
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              // A new query invalidates the current page position, like the severity filter below.
-              setPage(1);
-            }}
+            aria-label={activity('search')}
+            placeholder={activity('search')}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
           />
         </div>
-
-        <div className="filter-group">
-          <Filter size={16} />
-          <CustomSelect
-            value={severityFilter}
-            onChange={value => {
-              setSeverityFilter(value);
-              setPage(1);
-            }}
-            options={[
-              { value: 'all', label: t('logs.severity.all') },
-              { value: 'info', label: t('logs.severity.info') },
-              { value: 'warn', label: t('logs.severity.warn') },
-              { value: 'error', label: t('logs.severity.error') },
-            ]}
-          />
-        </div>
+        {select('source', ['', 'audit', 'event', 'webhook'])}
+        {select('severity', ['', 'info', 'warn', 'error'])}
+        {select('outcome', ['', 'emitted', 'queued', 'attempting', 'delivered', 'retrying', 'failed', 'skipped'])}
+        {select('sortOrder', ['DESC', 'ASC'])}
       </div>
-
+      <details className="log-advanced">
+        <summary>{activity('advanced')}</summary>
+        <div className="activity-filters">
+          {(['event', 'sessionId', 'webhookId', 'deliveryId'] as const).map(key => (
+            <label className="log-filter-label" key={key}>
+              <span>{activity(key)}</span>
+              <input
+                defaultValue={String(filters[key] ?? '')}
+                onBlur={e => setFilter(key, e.target.value)}
+                placeholder={activity(key)}
+              />
+            </label>
+          ))}
+          {(['startDate', 'endDate'] as const).map(key => (
+            <label className="log-filter-label" key={key}>
+              <span>{activity(key)}</span>
+              <input
+                type="datetime-local"
+                onChange={e => setFilter(key, e.target.value ? new Date(e.target.value).toISOString() : '')}
+              />
+            </label>
+          ))}
+          {select('sortBy', ['createdAt', 'action', 'severity', 'statusCode'])}
+        </div>
+      </details>
+      <p className="log-results" role="status">
+        {activity('total')}: {total.toLocaleString()} · {activity('autoRefresh')}
+      </p>
       <div className="logs-table-container">
         <div className="logs-table">
           <div className="table-row header">
             <span>{t('logs.columns.timestamp')}</span>
-            <span>{t('logs.columns.action')}</span>
+            <span>{activity('eventAction')}</span>
             <span>{t('logs.columns.session')}</span>
-            <span>{t('logs.columns.apiKey')}</span>
-            <span>{t('logs.columns.ip')}</span>
+            <span>{activity('source')}</span>
+            <span>{activity('result')}</span>
             <span>{t('logs.columns.severity')}</span>
           </div>
-          {/* The spinner stays inside the table: a search or severity change switches to a page that
-              may not be cached, and replacing the whole page would unmount the search box mid-typing. */}
-          {loading && logs.length === 0 ? (
+          {isLoading && !logs.length ? (
             <div className="empty-table-state">
               <Loader2 className="animate-spin" size={32} />
             </div>
-          ) : logsError && logs.length === 0 ? (
-            // Nothing was read, so no "no logs" copy: the banner above reports the failure on its own.
+          ) : !logs.length ? (
             <div className="empty-table-state">
-              <AlertCircle size={32} />
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="empty-table-state">
-              <FileText size={48} strokeWidth={1} />
-              {hasSeverityFilter && !hasSearch ? (
-                <>
-                  <h3>{t('logs.empty.title')}</h3>
-                  <p>{t('logs.empty.filteredServerDescription')}</p>
-                </>
-              ) : hasSearch ? (
-                <>
-                  <h3>{t('logs.empty.filteredTitle')}</h3>
-                  <p>{t('logs.empty.filteredDescription')}</p>
-                </>
+              {isError ? (
+                <AlertCircle size={32} />
               ) : (
                 <>
+                  <FileText size={48} />
                   <h3>{t('logs.empty.title')}</h3>
-                  <p>{t('logs.empty.description')}</p>
+                  <p>{activity('noMatches')}</p>
                 </>
               )}
             </div>
           ) : (
-            filteredLogs.map(log => (
-              <div key={log.id} className="table-row">
-                <span className="timestamp">{formatTimestamp(log.createdAt)}</span>
-                <span className="action">{log.action}</span>
-                <span>{log.sessionName || log.sessionId || '—'}</span>
-                <span className="api-key">{log.apiKeyName || '—'}</span>
-                <span className="ip">{log.ipAddress || '—'}</span>
-                <span>
-                  <span className={`severity-badge ${log.severity}`}>{t(`logs.severity.${log.severity}`)}</span>
-                </span>
+            logs.map(log => (
+              <div key={log.id} className="log-entry">
+                <div className="table-row">
+                  <span className="timestamp">{new Date(log.createdAt).toLocaleString()}</span>
+                  <span className="action">
+                    {String(log.metadata?.event ?? log.action)}
+                    {log.metadata?.event != null && <small>{log.action}</small>}
+                  </span>
+                  <span className="log-id">{log.sessionName || log.sessionId || '—'}</span>
+                  <span>
+                    {activity(String(log.metadata?.source ?? 'audit'))}
+                    <small>{String(log.metadata?.transport ?? '')}</small>
+                  </span>
+                  <span>
+                    {log.metadata?.outcome ? activity(String(log.metadata.outcome)) : '—'}
+                    {log.statusCode ? ' · HTTP ' + log.statusCode : ''}
+                    {typeof log.metadata?.attempt === 'number' && (
+                      <small>
+                        {activity('attempt')}: {log.metadata.attempt}
+                      </small>
+                    )}
+                    {typeof log.metadata?.durationMs === 'number' && <small>{log.metadata.durationMs} ms</small>}
+                  </span>
+                  <span className={'severity-badge ' + log.severity}>{t('logs.severity.' + log.severity)}</span>
+                </div>
+                <details className="log-detail">
+                  <summary>{activity('details')}</summary>
+                  {log.errorMessage && <p className="log-error">{log.errorMessage}</p>}
+                  <pre>
+                    {JSON.stringify(
+                      {
+                        id: log.id,
+                        action: log.action,
+                        sessionId: log.sessionId,
+                        apiKeyName: log.apiKeyName,
+                        ipAddress: log.ipAddress,
+                        method: log.method,
+                        path: log.path,
+                        statusCode: log.statusCode,
+                        ...log.metadata,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </details>
               </div>
             ))
           )}
         </div>
       </div>
-
       {totalPages > 1 && (
         <div className="pagination">
           <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>

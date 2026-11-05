@@ -893,12 +893,17 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'B', chatId: chatA }));
+      await flush(); // Session preferences are read before starting hooks.
       // Both chains started: hooks still run concurrently.
       expect(hookManager.execute).toHaveBeenCalledTimes(2);
+
+      await flush();
 
       release.get('B')!();
       await flush();
       expect(inserted()).toEqual([]);
+
+      await flush();
 
       release.get('A')!();
       await flush();
@@ -914,6 +919,8 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'C', chatId: '15550002222@c.us' }));
+      await flush();
+
       release.get('C')!();
       await flush();
 
@@ -927,7 +934,11 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'B', chatId: chatA }));
+      await flush();
+
       release.get('A')!(true);
+      await flush();
+
       release.get('B')!();
       await flush();
 
@@ -942,9 +953,13 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'B', chatId: chatA }));
+      await flush();
+
       release.get('B')!();
       await flush();
       engines.set(SESSION_ID, makeEngine());
+      await flush();
+
       release.get('A')!();
       await flush();
 
@@ -959,9 +974,13 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'B', chatId: chatA }));
+      await flush();
+
       release.get('B')!();
       await flush();
       projector.handleMessageRevoked(SESSION_ID, engine, { id: 'B' } as never);
+      await flush();
+
       release.get('A')!();
       await flush();
 
@@ -995,10 +1014,14 @@ describe('MessageProjector (inbound projection)', () => {
       });
       if (fromMe) projector.handleOwnSendEcho(SESSION_ID, engine, b);
       else projector.handleInboundMessage(SESSION_ID, engine, b);
+      await flush();
+
       release.get('B')!();
       await flush();
       // The REST delete-for-me: no engine revoke event follows, so no message.revoked went out.
       void projector.recordRevoke(SESSION_ID, 'B');
+      await flush();
+
       release.get('A')!();
       await flush();
 
@@ -1022,9 +1045,13 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'B', chatId: chatA, body: 'typo' }));
+      await flush();
+
       release.get('B')!();
       await flush();
       projector.applyMessageEditQueued(SESSION_ID, { messageId: 'B', body: 'fixed' } as never);
+      await flush();
+
       release.get('A')!();
       await flush();
 
@@ -1046,9 +1073,13 @@ describe('MessageProjector (inbound projection)', () => {
 
       projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
       projector.handleOwnSendEcho(SESSION_ID, engine, makeIncoming({ id: 'S', chatId: chatA, fromMe: true }));
+      await flush();
+
       release.get('S')!();
       await flush();
       expect(inserted()).toEqual([]);
+
+      await flush();
 
       release.get('A')!();
       await flush();
@@ -1064,6 +1095,8 @@ describe('MessageProjector (inbound projection)', () => {
         const release = holdHooks();
         projector.handleInboundMessage(SESSION_ID, engine, makeIncoming({ id: 'A', chatId: chatA }));
         projector.handleOwnSendEcho(SESSION_ID, engine, makeIncoming({ id: 'S', chatId: chatA, fromMe: true }));
+        await flush();
+
         release.get('S')!();
         await flush();
         return { engine, releaseA: () => release.get('A')!() };

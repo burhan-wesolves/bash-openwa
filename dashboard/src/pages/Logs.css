@@ -4,6 +4,73 @@
   box-sizing: border-box;
 }
 
+.logs-page .activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.logs-page .log-filter-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.logs-page .log-filter-label input {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  background: var(--bg-white);
+}
+.logs-page .log-advanced {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.logs-page .log-advanced summary,
+.logs-page .log-detail summary {
+  cursor: pointer;
+}
+.logs-page .log-advanced .activity-filters {
+  margin-top: 14px;
+}
+.logs-page .log-results {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.logs-page .log-entry {
+  border-bottom: 1px solid var(--border);
+}
+.logs-page .log-entry .table-row {
+  border-bottom: none;
+}
+.logs-page .log-entry small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.logs-page .log-id {
+  overflow-wrap: anywhere;
+}
+.logs-page .log-detail {
+  padding: 0 24px 12px;
+  font-size: 12px;
+}
+.logs-page .log-detail pre {
+  overflow-x: auto;
+  padding: 12px;
+  background: var(--bg-light);
+  border-radius: var(--radius);
+}
+.logs-page .log-error {
+  color: var(--danger, #c53030);
+}
+
 .logs-page .page-header {
   margin-bottom: 1.5rem;
 }

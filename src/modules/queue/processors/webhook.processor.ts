@@ -1,3 +1,6 @@
+import { Optional } from '@nestjs/common';
+import { AuditService } from '../../audit/audit.service';
+import { AuditAction } from '../../audit/entities/audit-log.entity';
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { DelayedError, Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -74,6 +77,7 @@ export class WebhookProcessor extends WorkerHost {
     private readonly hookManager: HookManager,
     private readonly configService: ConfigService,
     private readonly outbox: WebhookOutboxService,
+    @Optional() private readonly auditService?: AuditService,
   ) {
     super();
     // WEBHOOK_DEGRADED_SESSION_CONCURRENCY, else a quarter of the worker pool.
@@ -166,6 +170,16 @@ export class WebhookProcessor extends WorkerHost {
           idempotencyKey: payload.idempotencyKey,
           action: 'webhook_skipped_stale',
         });
+        await this.auditService?.recordActivity(AuditAction.WEBHOOK_SKIPPED, {
+          eventId: job.data.eventId,
+          sessionId,
+          event,
+          webhookId,
+          deliveryId: payload.deliveryId,
+          outcome: 'skipped',
+          reason: 'Webhook removed, disabled or unsubscribed',
+          transport: 'queue',
+        });
         this.failingWebhooks.delete(webhookId);
         await this.outbox.close(webhookId, payload.idempotencyKey, 'dispatched');
         return { statusCode: 0, success: false, error: 'webhook removed, disabled or unsubscribed', responseTime: 0 };
@@ -181,7 +195,29 @@ export class WebhookProcessor extends WorkerHost {
         job.attemptsMade,
       );
 
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_ATTEMPT, {
+        eventId: job.data.eventId,
+        sessionId,
+        event,
+        webhookId,
+        deliveryId: payload.deliveryId,
+        attempt: job.attemptsMade + 1,
+        transport: 'queue',
+        outcome: 'attempting',
+      });
       const { status, responseTime } = await this.postToReceiver(ctx, body, requestHeaders);
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_DELIVERED, {
+        eventId: job.data.eventId,
+        sessionId,
+        event,
+        webhookId,
+        deliveryId: payload.deliveryId,
+        attempt: job.attemptsMade + 1,
+        transport: 'queue',
+        outcome: 'delivered',
+        statusCode: status,
+        durationMs: responseTime,
+      });
       this.failingWebhooks.delete(webhookId);
       await this.outbox.close(webhookId, payload.idempotencyKey, 'dispatched');
       await this.recordSuccessfulDelivery(ctx, status, responseTime);
@@ -248,7 +284,7 @@ export class WebhookProcessor extends WorkerHost {
       this.logger.error(
         'Webhook delivered but lastTriggeredAt update failed',
         bookkeepingError instanceof Error ? bookkeepingError.message : String(bookkeepingError),
-        { webhookId, deliveryId: payload.deliveryId, action: 'webhook_bookkeeping_failed' },
+        { webhookId, deliveryId: payload.deliveryId, eventId: job.data.eventId, action: 'webhook_bookkeeping_failed' },
       );
     }
 
@@ -293,6 +329,19 @@ export class WebhookProcessor extends WorkerHost {
     const responseTime = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isFinalAttempt = job.attemptsMade + 1 >= maxRetries;
+    await this.auditService?.recordActivity(isFinalAttempt ? AuditAction.WEBHOOK_FAILED : AuditAction.WEBHOOK_RETRY, {
+      eventId: job.data.eventId,
+      sessionId,
+      event,
+      webhookId,
+      deliveryId: payload.deliveryId,
+      attempt: job.attemptsMade + 1,
+      transport: 'queue',
+      outcome: isFinalAttempt ? 'failed' : 'retrying',
+      statusCode: statusCodeFromError(errorMessage) ?? undefined,
+      durationMs: responseTime,
+      reason: redactSsrfError(error),
+    });
 
     this.logger.error(`Webhook delivery failed`, errorMessage, {
       webhookId,
@@ -381,6 +430,17 @@ export class WebhookProcessor extends WorkerHost {
       });
     }
 
+    await this.auditService?.recordActivity(AuditAction.WEBHOOK_FAILED, {
+      sessionId,
+      event,
+      webhookId,
+      deliveryId: payload.deliveryId,
+      eventId: job.data.eventId,
+      outcome: 'failed',
+      transport: 'queue',
+      reason: 'Webhook job stalled beyond the recovery limit',
+      attempt: job.attemptsMade,
+    });
     this.logger.error('Webhook job failed after stalling beyond the recovery limit', error.message, {
       webhookId,
       event,

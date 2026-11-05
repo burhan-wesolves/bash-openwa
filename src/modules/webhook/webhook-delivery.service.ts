@@ -1,3 +1,6 @@
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
+import { statusCodeFromError } from './utils/record-delivery-failure';
 import { Injectable, Optional, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
@@ -39,6 +42,7 @@ export interface WebhookPayload {
 }
 
 export interface WebhookJobData {
+  eventId?: string;
   webhookId: string;
   url: string;
   event: string;
@@ -88,6 +92,7 @@ export type WebhookDeliveryOutcome = 'delivered' | 'enqueued' | 'cancelled' | 'f
 
 /** Per-event-occurrence context threaded through the dispatch pipeline stages (was closure state). */
 interface DispatchEventContext {
+  eventId?: string;
   sessionId: string;
   event: string;
   baseData: Record<string, unknown>;
@@ -107,6 +112,7 @@ interface DispatchEventContext {
 
 /** Per-delivery options of the direct path (deliverWebhook), derived from the dispatch context. */
 interface DirectDeliveryOptions {
+  eventId?: string;
   yieldSlot?: <R>(fn: () => Promise<R>) => Promise<R>;
   /** Kept on the terminal failure row for a redrive; set only while payload retention is on. */
   replayData?: Record<string, unknown>;
@@ -188,6 +194,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
     @Optional()
     @InjectQueue(QUEUE_NAMES.WEBHOOK)
     private readonly webhookQueue?: Queue<WebhookJobData>,
+    @Optional() private readonly auditService?: AuditService,
   ) {
     this.queueEnabled = configService.get<boolean>('queue.enabled', false);
     // Bound fan-out: cap how many webhook deliveries run CONCURRENTLY in this process. Every event and
@@ -265,8 +272,18 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
   }
 
   async dispatch(sessionId: string, event: string, data: Record<string, unknown>): Promise<void> {
+    const eventId = generateDeliveryId();
     const webhooks = await this.loadActiveWebhooks(sessionId, event);
     const matchingWebhooks = this.filterMatchingWebhooks(webhooks, event, data);
+    await this.auditService?.recordActivity(AuditAction.EVENT_EMITTED, {
+      sessionId,
+      event,
+      eventId,
+      transport: 'webhook',
+      outcome: 'emitted',
+      active: webhooks.length,
+      matched: matchingWebhooks.length,
+    });
 
     // Base idempotency key for this event occurrence. occurredAt is captured once here and reused for
     // every retry of this dispatch, so recurring lifecycle events get a distinct-per-occurrence key
@@ -290,7 +307,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
     // eslint-disable-next-line no-useless-assignment
     data = baseData;
 
-    const ctx: DispatchEventContext = { sessionId, event, baseData };
+    const ctx: DispatchEventContext = { sessionId, event, baseData, eventId };
     // allSettled preserves the per-webhook isolation: one failing delivery never rejects the others.
     await Promise.allSettled(matchingWebhooks.map(webhook => this.dispatchWithLimit(webhook, baseIdempotencyKey, ctx)));
   }
@@ -305,6 +322,12 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
         where: { sessionId, active: true },
       });
     } catch (error) {
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_FAILED, {
+        sessionId,
+        event,
+        outcome: 'failed',
+        reason: 'Webhook subscription lookup failed',
+      });
       this.logger.error(`Webhook dispatch lookup failed for ${event}`, String(error), {
         sessionId,
         action: 'webhook_dispatch_lookup_failed',
@@ -364,6 +387,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
         payloadFields: Object.keys(data).sort().join(','),
       });
     }
+    for (const webhook of webhooks.filter(w => !matching.includes(w))) {
+      void this.auditService?.recordActivity(AuditAction.WEBHOOK_SKIPPED, {
+        sessionId: webhook.sessionId,
+        event,
+        webhookId: webhook.id,
+        outcome: 'skipped',
+        reason: subscribed.includes(webhook) ? 'Payload filter did not match or was invalid' : 'Event not subscribed',
+      });
+    }
     return matching;
   }
 
@@ -377,6 +409,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
   ): Promise<boolean> {
     const { sessionId, event } = ctx;
     const lastError = redactSsrfError(error, this.logger, 'webhook dispatch');
+    await this.auditService?.recordActivity(AuditAction.WEBHOOK_FAILED, {
+      sessionId,
+      event,
+      eventId: ctx.eventId,
+      webhookId: webhook.id,
+      deliveryId,
+      outcome: 'failed',
+      reason: lastError,
+    });
     const recorded = await recordWebhookDeliveryFailure(this.failureRepository, this.logger, {
       webhookId: webhook.id,
       sessionId,
@@ -450,6 +491,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       );
 
       if (!shouldContinue) {
+        await this.auditService?.recordActivity(AuditAction.WEBHOOK_SKIPPED, {
+          sessionId,
+          event,
+          eventId: ctx.eventId,
+          webhookId: webhook.id,
+          deliveryId,
+          outcome: 'skipped',
+          reason: 'Cancelled by webhook:before hook',
+        });
         this.logger.debug(`Webhook dispatch cancelled by plugin for ${event}`, {
           webhookId: webhook.id,
           action: 'webhook_cancelled_by_plugin',
@@ -587,6 +637,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       // No headers are stored: the processor builds them and the signature from the current row on
       // every attempt, so custom headers (which may carry receiver credentials) never reach Redis.
       const jobData: WebhookJobData = {
+        eventId: ctx.eventId,
         webhookId: webhook.id,
         url: webhook.url,
         event,
@@ -613,6 +664,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       });
 
       await this.outbox.markQueued(webhook.id, idempotencyKey, deliveryId);
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_QUEUED, {
+        sessionId,
+        event,
+        webhookId: webhook.id,
+        deliveryId,
+        eventId: ctx.eventId,
+        transport: 'queue',
+        outcome: 'queued',
+      });
 
       // Execute hook after successful queue (NOT delivery - that happens in processor)
       await this.hookManager.execute(
@@ -640,6 +700,16 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
         { sessionId, source: 'WebhookService' },
       );
 
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_RETRY, {
+        sessionId,
+        event,
+        webhookId: webhook.id,
+        deliveryId,
+        eventId: ctx.eventId,
+        transport: 'queue',
+        outcome: 'retrying',
+        reason: 'Queue unavailable; attempting direct delivery',
+      });
       this.logger.error(`Failed to queue webhook ${webhook.id}`, String(error), {
         webhookId: webhook.id,
         action: 'webhook_queue_failed',
@@ -750,6 +820,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const { sessionId, event } = ctx;
     const deliveryId = generateDeliveryId();
+    await this.auditService?.recordActivity(AuditAction.WEBHOOK_QUEUED, {
+      sessionId,
+      event,
+      eventId: ctx.eventId,
+      webhookId: webhook.id,
+      deliveryId,
+      outcome: 'queued',
+      transport: 'dispatch',
+    });
     // Salt per webhook so sibling subscriptions cannot collide at the receiver's dedup boundary.
     const idempotencyKey = `${baseIdempotencyKey}_${webhook.id}`;
     // Durable record BEFORE anything is attempted. A hard crash from here until the delivery
@@ -872,6 +951,15 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
                   idempotencyKey,
                   action: 'webhook_skipped_stale',
                 });
+                await this.auditService?.recordActivity(AuditAction.WEBHOOK_SKIPPED, {
+                  sessionId,
+                  event,
+                  webhookId: webhook.id,
+                  deliveryId,
+                  eventId: ctx.eventId,
+                  outcome: 'skipped',
+                  reason: 'Parked webhook removed, disabled or unsubscribed',
+                });
                 this.failingWebhooks.delete(webhook.id);
                 await this.outbox.close(webhook.id, idempotencyKey, 'dispatched');
                 return;
@@ -985,6 +1073,16 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       where: { webhookId: row.webhookId, idempotencyKey: row.idempotencyKey, attempts: MoreThan(0) },
     });
     if (existing > 0) return true;
+    await this.auditService?.recordActivity(AuditAction.WEBHOOK_FAILED, {
+      sessionId: row.sessionId,
+      event: row.event,
+      webhookId: row.webhookId,
+      deliveryId: row.deliveryId,
+      outcome: 'failed',
+      transport: 'replay',
+      reason: 'Webhook replay budget exhausted',
+      attempt: row.attempts,
+    });
     const recorded = await recordWebhookDeliveryFailure(this.failureRepository, this.logger, {
       webhookId: row.webhookId,
       sessionId: row.sessionId,
@@ -1010,6 +1108,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
   /** What the direct path needs from the dispatch context: the slot, the replay copy, the attempt cap. */
   private directOptions(ctx: DispatchEventContext): DirectDeliveryOptions {
     return {
+      eventId: ctx.eventId,
       yieldSlot: ctx.yieldSlot,
       replayData: this.keepsFailurePayload() ? ctx.baseData : undefined,
       singleAttempt: ctx.singleAttempt,
@@ -1038,6 +1137,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
     const delay = this.configService.get<number>('webhook.retryDelay', 5000);
     let current = webhook;
     for (let attempt = 1; ; attempt++) {
+      const startedAt = Date.now();
       try {
         // Inside the try: a read error counts as a failed attempt, as it does for a queued job.
         const row = await this.webhookRepository.findOne({ where: { id: webhook.id } });
@@ -1048,6 +1148,16 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
             deliveryId: payload.deliveryId,
             idempotencyKey: payload.idempotencyKey,
             action: 'webhook_skipped_stale',
+          });
+          await this.auditService?.recordActivity(AuditAction.WEBHOOK_SKIPPED, {
+            eventId: options.eventId,
+            sessionId: payload.sessionId,
+            event: payload.event,
+            webhookId: webhook.id,
+            deliveryId: payload.deliveryId,
+            attempt,
+            outcome: 'skipped',
+            reason: 'Webhook removed, disabled, unsubscribed or reassigned',
           });
           this.failingWebhooks.delete(webhook.id);
           return false;
@@ -1063,7 +1173,34 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
         );
         // A retry gives way once its replay's owner has stopped, even when the backoff ended first.
         if (attempt > 1) options.signal?.throwIfAborted();
-        await postWebhookPayload(current.url, body, headers, this.configService.get<number>('webhook.timeout', 10000));
+        await this.auditService?.recordActivity(AuditAction.WEBHOOK_ATTEMPT, {
+          eventId: options.eventId,
+          sessionId: payload.sessionId,
+          event: payload.event,
+          webhookId: webhook.id,
+          deliveryId: payload.deliveryId,
+          attempt,
+          transport: 'direct',
+          outcome: 'attempting',
+        });
+        const response = await postWebhookPayload(
+          current.url,
+          body,
+          headers,
+          this.configService.get<number>('webhook.timeout', 10000),
+        );
+        await this.auditService?.recordActivity(AuditAction.WEBHOOK_DELIVERED, {
+          eventId: options.eventId,
+          sessionId: payload.sessionId,
+          event: payload.event,
+          webhookId: webhook.id,
+          deliveryId: payload.deliveryId,
+          attempt,
+          transport: 'direct',
+          statusCode: response.status,
+          durationMs: Date.now() - startedAt,
+          outcome: 'delivered',
+        });
         this.failingWebhooks.delete(webhook.id);
 
         // The receiver already answered 2xx — the delivery SUCCEEDED. A bookkeeping failure here (e.g.
@@ -1078,7 +1215,12 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
           this.logger.error(
             `Webhook delivered to ${webhook.id} but lastTriggeredAt update failed`,
             bookkeepingError instanceof Error ? bookkeepingError.message : String(bookkeepingError),
-            { webhookId: webhook.id, deliveryId: payload.deliveryId, action: 'webhook_bookkeeping_failed' },
+            {
+              webhookId: webhook.id,
+              deliveryId: payload.deliveryId,
+              eventId: options.eventId,
+              action: 'webhook_bookkeeping_failed',
+            },
           );
         }
         // A delivered event must not stay listed as lost: a replay of a shed, refused or failed
@@ -1093,6 +1235,20 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
         return true;
       } catch (error) {
         if (isAbortedBackoff(error, options.signal)) throw error;
+        const retrying = attempt < (options.singleAttempt ? 1 : current.retryCount);
+        await this.auditService?.recordActivity(retrying ? AuditAction.WEBHOOK_RETRY : AuditAction.WEBHOOK_FAILED, {
+          eventId: options.eventId,
+          sessionId: payload.sessionId,
+          event: payload.event,
+          webhookId: webhook.id,
+          deliveryId: payload.deliveryId,
+          attempt,
+          transport: 'direct',
+          statusCode: statusCodeFromError(String(error).replace(/^Error: /, '')) ?? undefined,
+          durationMs: Date.now() - startedAt,
+          outcome: retrying ? 'retrying' : 'failed',
+          reason: redactSsrfError(error),
+        });
         this.failingWebhooks.add(webhook.id);
         this.logger.error(`Webhook delivery failed for ${webhook.id}`, String(error), {
           webhookId: webhook.id,

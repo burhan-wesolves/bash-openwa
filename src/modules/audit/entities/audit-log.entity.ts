@@ -1,6 +1,12 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
 
 export enum AuditAction {
+  EVENT_EMITTED = 'event_emitted',
+  WEBHOOK_QUEUED = 'webhook_queued',
+  WEBHOOK_ATTEMPT = 'webhook_attempt',
+  WEBHOOK_DELIVERED = 'webhook_delivered',
+  WEBHOOK_RETRY = 'webhook_retry',
+  WEBHOOK_SKIPPED = 'webhook_skipped',
   // API Key events
   API_KEY_CREATED = 'api_key_created',
   API_KEY_UPDATED = 'api_key_updated',

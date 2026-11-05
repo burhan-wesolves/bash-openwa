@@ -188,6 +188,7 @@ describe('SessionService', () => {
       setOnlinePresence: jest.fn().mockResolvedValue(undefined),
       resolveContactPhone: jest.fn().mockResolvedValue('628111222333'),
       rejectCall: jest.fn().mockResolvedValue(undefined),
+      sendTextMessage: jest.fn().mockResolvedValue({ id: 'reply' }),
       getContactStatuses: jest.fn().mockResolvedValue([]),
       getChatHistory: jest.fn().mockResolvedValue([]),
       getContactById: jest.fn().mockResolvedValue(null),
@@ -8566,6 +8567,24 @@ describe('SessionService', () => {
       expect(webhookService.dispatch).toHaveBeenCalledWith('sess-uuid-1', 'call.received', expect.anything());
     });
 
+    it('sends the configured reply only after successfully rejecting a call', async () => {
+      const onCall = await startAndCaptureCallCallback({ autoRejectCalls: true, callRejectMessage: 'Please text me.' });
+      onCall(callEvent());
+      await flush();
+      expect(mockEngine.sendTextMessage).toHaveBeenCalledWith('628111@c.us', 'Please text me.');
+      expect(mockEngine.rejectCall.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEngine.sendTextMessage.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('does not send a rejection reply when the rejection fails', async () => {
+      const onCall = await startAndCaptureCallCallback({ autoRejectCalls: true, callRejectMessage: 'Please text me.' });
+      mockEngine.rejectCall.mockRejectedValueOnce(new Error('already ended'));
+      onCall(callEvent());
+      await flush();
+      expect(mockEngine.sendTextMessage).not.toHaveBeenCalled();
+    });
+
     it.each([{ autoRejectCalls: 'yes' }, { autoRejectCalls: 1 }, {}])(
       'does NOT auto-reject for a truthy non-boolean or absent flag: %o',
       async config => {
@@ -10241,6 +10260,11 @@ describe('SessionService', () => {
       // to serialise as null, not as the cap.
       await expect(service.getConfig('sess-uuid-1')).resolves.toEqual({
         autoRejectCalls: false,
+        callRejectMessage: '',
+        ignoreGroups: false,
+        alwaysOnline: process.env.BAILEYS_MARK_ONLINE_ON_CONNECT !== 'false',
+        readMessages: false,
+        readStatus: false,
         maxReconnectAttempts: null,
         reconnectBaseDelay: 5000,
       });
@@ -10298,6 +10322,11 @@ describe('SessionService', () => {
       // the authority at use time, and this must agree with it rather than echo the stored value.
       await expect(service.getConfig('sess-uuid-1')).resolves.toEqual({
         autoRejectCalls: false,
+        callRejectMessage: '',
+        ignoreGroups: false,
+        alwaysOnline: process.env.BAILEYS_MARK_ONLINE_ON_CONNECT !== 'false',
+        readMessages: false,
+        readStatus: false,
         maxReconnectAttempts: 20,
         reconnectBaseDelay: 1000,
       });

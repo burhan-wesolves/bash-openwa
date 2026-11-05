@@ -56,6 +56,7 @@ export class BaileysPlugin implements IEnginePlugin {
     return new BaileysAdapter({
       sessionId,
       dbSessionId,
+      alwaysOnline: config.alwaysOnline as boolean | undefined,
       authDir,
       proxyUrl,
       proxyType,

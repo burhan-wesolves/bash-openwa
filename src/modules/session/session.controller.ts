@@ -191,9 +191,10 @@ export class SessionController {
     summary: 'Update the tunable configuration for a session',
     description:
       'Merges the supplied keys into the session config; omitted keys are left unchanged and an ' +
-      'explicit null clears a key back to its default. No restart is required or performed. ' +
+      'explicit null clears a key back to its default. No restart is performed. ' +
       '`autoRejectCalls` is re-read on every incoming call, so it applies immediately; the two ' +
-      'reconnect settings are read once per start and therefore apply on the next start.',
+      'reconnect settings apply on the next start. Message and status read ' +
+      'preferences and ignoreGroups apply to new arrivals; alwaysOnline also publishes presence immediately.',
   })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({
@@ -212,7 +213,7 @@ export class SessionController {
     await this.auditService.logInfo(AuditAction.SESSION_CONFIG_UPDATED, {
       sessionId: id,
       // The resulting state, not the request: a merge patch is meaningless in an audit trail without
-      // knowing what it merged into. Only the three recognised keys, never the raw column.
+      // knowing what it merged into. Only the recognised settings, never the raw column.
       metadata: { ...config },
     });
     return config;

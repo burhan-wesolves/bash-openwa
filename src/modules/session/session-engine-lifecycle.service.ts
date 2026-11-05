@@ -664,6 +664,7 @@ export class SessionEngineLifecycle {
     const engine = this.engineFactory.create({
       sessionId: id,
       dbSessionId: id,
+      alwaysOnline: typeof session.config?.alwaysOnline === 'boolean' ? session.config.alwaysOnline : undefined,
       proxyUrl: session.proxyUrl || undefined,
       proxyType: session.proxyType || undefined,
     });
@@ -946,6 +947,14 @@ export class SessionEngineLifecycle {
     // cleared the preference in initializeEngine, so this is a no-op there. Not awaited — on
     // whatsapp-web.js the call is a page evaluate, and READY must not wait on it.
     this.reapplyOwnPresence(id);
+    void Promise.resolve(this.sessionRepository.findOne({ where: { id } }))
+      .then(async row => {
+        if (!this.engines.isLive(id, engine) || typeof row?.config?.alwaysOnline !== 'boolean') return;
+        await engine.setOnlinePresence(row.config.alwaysOnline);
+      })
+      .catch(error =>
+        this.logger.warn('Could not apply session online preference', { sessionId: id, error: String(error) }),
+      );
 
     // Best-effort snapshot of the account's own contacts' currently-active statuses. Live status
     // posts arrive through onMessage below; this just backfills what was already up before we

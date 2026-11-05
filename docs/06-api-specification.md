@@ -7346,3 +7346,31 @@ When the queue is enabled, a non-2xx response, timeout (`WEBHOOK_TIMEOUT`, defau
 ### SSRF guard on registration
 
 Webhook URLs are validated at **registration time**, not just at delivery. When SSRF protection is enabled (the default), creating a webhook, or updating one to a different URL, with a URL that resolves to a private/internal/loopback address is rejected synchronously with `400 Bad Request` instead of failing silently later at delivery. The `SSRF_ALLOWED_HOSTS` escape-hatch applies equally to registration and delivery. Independently of the SSRF flag, a URL embedding credentials (`https://user:pass@host/hook`) is rejected with `400` — such credentials would otherwise be persisted and echoed into delivery logs and dead-letter rows. An update that re-sends the stored URL unchanged skips both checks, so a webhook whose host became blocked can still be deactivated or re-filtered; delivery still applies the SSRF guard. Operator-supplied custom headers that target reserved names (`Content-Type`, `User-Agent` or any `X-OpenWA-*`, in any letter case) are stripped, so a webhook config cannot forge the signature, event, or idempotency headers. A header map with two names that differ only in case is rejected with `400`. The connection-level names the HTTP client owns (`Connection`, `Content-Length`, `Expect`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`) are stripped as well, since setting one would fail or corrupt the delivery.
+
+## Event and webhook logs
+
+`GET /api/logs` returns audit actions, emitted events, and webhook delivery history. It requires an **ADMIN** API key; a session-restricted admin can read only its allowed sessions. `GET /api/audit` remains available for existing clients.
+
+| Parameter | Behavior |
+| --- | --- |
+| `source` | `audit`, `event`, or `webhook`; omit for all |
+| `event` / `action` | Exact event name / audit action |
+| `severity` | `info`, `warn`, or `error` |
+| `outcome` | `emitted`, `queued`, `attempting`, `delivered`, `retrying`, `failed`, or `skipped` |
+| `sessionId` / `webhookId` | Narrow to a session / webhook UUID |
+| `eventId` / `deliveryId` | Trace a dispatch occurrence / one webhook delivery and its retries |
+| `search` | Case-insensitive text search across retained actions, errors, session names/IDs, and metadata |
+| `startDate` / `endDate` | Inclusive ISO-8601 UTC time bounds; either may be supplied alone |
+| `sortBy` | `createdAt` (default), `action`, `severity`, or `statusCode` |
+| `sortOrder` | `DESC` (default) or `ASC`; ID breaks equal-value ties |
+| `limit` / `offset` | Page size 1–200 (default 50), offset 0–1000000 (default 0) |
+
+Example: `/api/logs?source=webhook&event=message.received&outcome=failed&sortBy=createdAt&sortOrder=DESC&limit=50&offset=0`.
+
+The response is `{ "data": [...], "total": 128, "limit": 50, "offset": 0 }`. Invalid filters, dates, sorting, and pagination return `400`; missing credentials return `401`, and non-admin credentials return `403`.
+
+Each event dispatch is recorded even when no webhook matches. WebSocket and webhook emissions are separate records with `metadata.transport`. Delivery records include the event, webhook and delivery IDs, attempt number, outcome, HTTP status and elapsed milliseconds where applicable. Subscription/filter skips, plugin cancellation, retries, queue dispatch, and terminal failures are recorded. Successful webhook responses are logged before bookkeeping, so a later database update failure cannot falsely label a successful POST as failed. The webhook Test button also produces correlated logs.
+
+Records begin when this feature is enabled; past events cannot be reconstructed. They use the existing SQLite main audit store and `AUDIT_RETENTION_DAYS` policy (90 days by default). Event bodies, message text/media, QR codes, webhook secrets and authorization headers are excluded. The Logs page refreshes every five seconds, searches on the server, exposes filters and details, and exports the active result set to CSV using a fixed end-time bound.
+
+For local verification, `node scripts/webhook-log-receiver.cjs` starts a signed receiver at `127.0.0.1:2791`; allow only that host via `SSRF_ALLOWED_HOSTS=127.0.0.1` on the local OpenWA process. `node scripts/check-event-logs.cjs` checks the API, successful and failed probes, and log correlation using an already-connected session. It leaves one local wildcard webhook for live verification; remove that webhook after testing. The receiver retains only event/delivery metadata under `data/`.

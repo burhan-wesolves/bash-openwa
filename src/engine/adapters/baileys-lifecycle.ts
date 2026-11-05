@@ -413,7 +413,7 @@ export class BaileysLifecycle {
       // BAILEYS_MARK_ONLINE_ON_CONNECT=false to stay invisible; the default preserves prior
       // behavior. Note this only gates the on-connect presence: the typing / chat-state API still
       // sends per-chat presence for that call regardless.
-      markOnlineOnConnect: process.env.BAILEYS_MARK_ONLINE_ON_CONNECT !== 'false',
+      markOnlineOnConnect: this.host.config.alwaysOnline ?? process.env.BAILEYS_MARK_ONLINE_ON_CONNECT !== 'false',
       // Baileys defaults this to `async () => undefined` (Defaults/index.js). Without a real
       // implementation, WhatsApp's message-retry protocol — triggered whenever a recipient's client
       // fails to decrypt on the first attempt — has nothing to resend, so the recipient is stuck on

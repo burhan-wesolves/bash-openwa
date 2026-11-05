@@ -1714,7 +1714,7 @@ async function openDetailFor(name: string): Promise<HTMLInputElement> {
   rtl.fireEvent.click(within(card).getByRole('button', { name: 'View' }));
   // The config is fetched when the modal opens, so the toggle only appears once that read lands —
   // findBy, not getBy.
-  return (await screen.findByRole('checkbox')) as HTMLInputElement;
+  return (await screen.findByRole('checkbox', { name: /auto.reject calls/i })) as HTMLInputElement;
 }
 
 test('the auto-reject toggle reflects the stored config and patches only the key it owns', async () => {
@@ -1725,6 +1725,7 @@ test('the auto-reject toggle reflects the stored config and patches only the key
 
   const toggle = await openDetailFor('new-device');
   assert.equal(toggle.checked, false);
+  assert.equal(rtl.screen.queryByRole('checkbox', { name: 'Sync Full History' }), null);
 
   rtl.fireEvent.click(toggle);
   await rtl.waitFor(() => assert.ok(fetchCalls.some(c => c.method === 'PATCH')));
@@ -1734,7 +1735,46 @@ test('the auto-reject toggle reflects the stored config and patches only the key
   // Only autoRejectCalls: sending the whole object would rewrite the two reconnect keys this screen
   // never showed the operator, and a merge patch exists precisely to avoid that.
   assert.deepEqual(patch?.body, { autoRejectCalls: true });
-  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, true));
+  await rtl.waitFor(() =>
+    assert.equal((rtl.screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).checked, true),
+  );
+});
+
+for (const [key, label] of [
+  ['ignoreGroups', 'Ignore Groups'],
+  ['alwaysOnline', 'Always Online'],
+  ['readMessages', 'Read Messages'],
+  ['readStatus', 'Read Status'],
+] as const) {
+  test(label + ' saves independently and can be turned off', async () => {
+    resetFetchCalls();
+    sessionConfig = { autoRejectCalls: false, maxReconnectAttempts: null, reconnectBaseDelay: 5000 };
+    configPatchFails = false;
+    renderSessions();
+    await openDetailFor('new-device');
+    const toggle = rtl.screen.getByRole('checkbox', { name: label }) as HTMLInputElement;
+    assert.equal(toggle.checked, false);
+    rtl.fireEvent.click(toggle);
+    await rtl.waitFor(() => assert.equal(toggle.disabled, false));
+    assert.deepEqual(fetchCalls.filter(c => c.method === 'PATCH').at(-1)?.body, { [key]: true });
+    rtl.fireEvent.click(toggle);
+    await rtl.waitFor(() => assert.equal(toggle.disabled, false));
+    assert.deepEqual(fetchCalls.filter(c => c.method === 'PATCH').at(-1)?.body, { [key]: false });
+  });
+}
+
+test('the rejection reply saves without changing toggles', async () => {
+  resetFetchCalls();
+  sessionConfig = { autoRejectCalls: false, maxReconnectAttempts: null, reconnectBaseDelay: 5000 };
+  configPatchFails = false;
+  renderSessions();
+  await openDetailFor('new-device');
+  const reply = rtl.screen.getByRole('textbox', { name: /reply after rejecting/i });
+  rtl.fireEvent.change(reply, { target: { value: 'Please text me.' } });
+  rtl.fireEvent.blur(reply);
+  await rtl.waitFor(() =>
+    assert.deepEqual(fetchCalls.find(c => c.method === 'PATCH')?.body, { callRejectMessage: 'Please text me.' }),
+  );
 });
 
 test('a rejected write reverts the toggle instead of leaving it showing a state the gateway never accepted', async () => {
@@ -1751,7 +1791,9 @@ test('a rejected write reverts the toggle instead of leaving it showing a state 
 
   // The optimistic flip must not survive the failure: a toggle left on would tell the operator calls
   // are being auto-rejected when the gateway still has it off.
-  await rtl.waitFor(() => assert.equal((rtl.screen.getByRole('checkbox') as HTMLInputElement).checked, false));
+  await rtl.waitFor(() =>
+    assert.equal((rtl.screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).checked, false),
+  );
   configPatchFails = false;
 });
 
@@ -1777,7 +1819,7 @@ test('a toggle answer that lands after its modal closed does not change another 
   release();
   await waitFor(() => assert.equal(sessionConfig.autoRejectCalls, true));
   await new Promise(resolve => setTimeout(resolve, 50));
-  assert.equal((screen.getByRole('checkbox') as HTMLInputElement).checked, false);
+  assert.equal((screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).checked, false);
 });
 
 test('a session reopened while its toggle saves keeps the toggle locked until that save answers', async () => {
@@ -1797,7 +1839,9 @@ test('a session reopened while its toggle saves keeps the toggle locked until th
   const reopened = await openDetailFor('new-device');
   assert.equal(reopened.disabled, true, 'a second write could overlap the one still pending');
   release();
-  await waitFor(() => assert.equal((screen.getByRole('checkbox') as HTMLInputElement).disabled, false));
+  await waitFor(() =>
+    assert.equal((screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).disabled, false),
+  );
 });
 
 test("one session's toggle answer does not unlock another session's pending toggle", async () => {
@@ -1821,9 +1865,11 @@ test("one session's toggle answer does not unlock another session's pending togg
   releaseFirst();
   await waitFor(() => assert.equal(sessionConfig.autoRejectCalls, true));
   await new Promise(resolve => setTimeout(resolve, 50));
-  assert.equal((screen.getByRole('checkbox') as HTMLInputElement).disabled, true);
+  assert.equal((screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).disabled, true);
   releaseSecond();
-  await waitFor(() => assert.equal((screen.getByRole('checkbox') as HTMLInputElement).disabled, false));
+  await waitFor(() =>
+    assert.equal((screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).disabled, false),
+  );
 });
 
 test('a failed toggle that lands after its modal closed does not revert another session', async () => {
@@ -1848,7 +1894,7 @@ test('a failed toggle that lands after its modal closed does not revert another 
     assert.equal(other.disabled, false, 'the pending toggle of the closed modal locked this one');
     release();
     await screen.findByRole('alert');
-    assert.equal((screen.getByRole('checkbox') as HTMLInputElement).checked, true);
+    assert.equal((screen.getByRole('checkbox', { name: /auto.reject calls/i }) as HTMLInputElement).checked, true);
   } finally {
     configPatchFails = false;
   }

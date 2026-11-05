@@ -252,6 +252,22 @@ function firstEditedMessage(callback: jest.Mock): EditedMessage {
 }
 
 describe('BaileysAdapter lifecycle & status', () => {
+  it.each([true, false])('passes per-session online preference (%s) to the socket', async enabled => {
+    const adapter = new BaileysAdapter({
+      sessionId: 'sess-1',
+      dbSessionId: 'db-uuid-1',
+      authDir: './data/baileys',
+      messageStore: fakeStore,
+      alwaysOnline: enabled,
+    });
+    await adapter.initialize(noopCallbacks());
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const makeSocket = jest.requireMock('@whiskeysockets/baileys').default as jest.Mock;
+    expect(makeSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ markOnlineOnConnect: enabled }),
+    );
+  });
+
   beforeEach(() => {
     fakeSock.user = undefined;
     fakeSock.ws.isOpen = true;
