@@ -4,7 +4,8 @@ import {
   webhookApi,
   templateApi,
   apiKeyApi,
-  auditApi,
+  logsApi,
+  type LogFilters,
   infraApi,
   pluginsApi,
   pluginInstancesApi,
@@ -252,16 +253,18 @@ export function useRevokeApiKeyMutation() {
 
 // ── Logs Queries ──────────────────────────────────────────────────────
 
-export function useLogsQuery(params: { severity?: string; page: number; limit: number }) {
+export function useLogsQuery(params: LogFilters & { page: number; limit: number }) {
   return useQuery({
     queryKey: queryKeys.logs(params),
     queryFn: () =>
-      auditApi.list({
+      logsApi.list({
+        ...Object.fromEntries(Object.entries(params).filter(([key]) => key !== 'page')),
         severity: params.severity,
         limit: params.limit,
         offset: (params.page - 1) * params.limit,
       }),
-    staleTime: 15_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
   });
 }
 

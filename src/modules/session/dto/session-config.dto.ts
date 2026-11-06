@@ -1,9 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 
 /**
- * The three keys the session service actually reads out of the opaque `config` column. Anything
+ * The settings the session service actually reads out of the opaque `config` column. Anything
  * else stored there is ignored (see docs/05-database-design.md), so this DTO is the whole tunable
  * surface rather than a subset of it.
  *
@@ -16,6 +16,49 @@ import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-bo
  * the authority for rows written before this endpoint existed.
  */
 export class UpdateSessionConfigDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Optional reply sent after rejecting a call. Empty disables the reply.',
+    maxLength: 4096,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  callRejectMessage?: string | null;
+
+  @ApiPropertyOptional({ type: Boolean, nullable: true, description: 'Ignore incoming group messages.' })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  ignoreGroups?: boolean | null;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    nullable: true,
+    description: 'Keep the account online. Applies immediately and on reconnect.',
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  alwaysOnline?: boolean | null;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    nullable: true,
+    description: 'Automatically mark each incoming message as read.',
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  readMessages?: boolean | null;
+
+  @ApiPropertyOptional({ type: Boolean, nullable: true, description: 'Automatically mark incoming statuses as read.' })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  readStatus?: boolean | null;
+
   @ApiPropertyOptional({
     description:
       'Auto-reject every incoming call as soon as it rings. Baileys engine only: whatsapp-web.js cannot ' +
@@ -78,12 +121,23 @@ export class UpdateSessionConfigDto {
  * The effective configuration, not the stored blob. `config` is deliberately stripped from
  * SessionResponseDto because it is an opaque column an operator may have put anything into
  * (alongside the credential-bearing proxyUrl) — echoing it back would leak that. Reporting only
- * the three recognised keys keeps that guarantee while still letting a caller confirm what landed.
+ * the recognised settings keeps that guarantee while still letting a caller confirm what landed.
  *
  * Values are resolved through resolveReconnectConfig, so what is reported is what the engine will
  * actually do, including for legacy rows whose stored values fall outside the accepted range.
  */
 export class SessionConfigResponseDto {
+  @ApiProperty({ example: '' })
+  callRejectMessage!: string;
+  @ApiProperty({ example: false })
+  ignoreGroups!: boolean;
+  @ApiProperty({ example: false })
+  alwaysOnline!: boolean;
+  @ApiProperty({ example: false })
+  readMessages!: boolean;
+  @ApiProperty({ example: false })
+  readStatus!: boolean;
+
   @ApiProperty({ description: 'Whether incoming calls are auto-rejected (Baileys engine only)', example: false })
   autoRejectCalls!: boolean;
 

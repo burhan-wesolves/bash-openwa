@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, renameSync, realpathSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, sep } from 'path';
 
@@ -122,6 +122,40 @@ describe.each([
     const res = await request(app.getHttpServer()).get('/sessions/abc/messages');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/html/);
+  });
+
+  it('serves the current entry file after a dashboard rebuild without restarting the server', async () => {
+    const indexPath = join(distDir, 'index.html');
+    const original = readFileSync(indexPath, 'utf8');
+    try {
+      writeFileSync(join(distDir, 'assets', 'rebuilt.js'), 'console.log("rebuilt")');
+      writeFileSync(indexPath, original + '<script type="module" src="/assets/rebuilt.js"></script>');
+      for (const route of ['/', '/message-tester']) {
+        const res = await request(app.getHttpServer()).get(route).set('Accept', 'text/html').expect(200);
+        expect(res.text).toContain('src="/assets/rebuilt.js"');
+        expect(res.headers['cache-control']).toBe('no-store');
+      }
+      await request(app.getHttpServer()).get('/assets/rebuilt.js').expect(200);
+    } finally {
+      writeFileSync(indexPath, original);
+    }
+  });
+
+  it('returns a retryable response while the dashboard index is temporarily absent during rebuild', async () => {
+    const indexPath = join(distDir, 'index.html');
+    const updatingPath = join(distDir, 'index.html.updating');
+    renameSync(indexPath, updatingPath);
+    try {
+      const res = await request(app.getHttpServer()).get('/message-tester').set('Accept', 'text/html').expect(503);
+      expect(res.headers['retry-after']).toBe('1');
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.text).toContain('Dashboard update in progress');
+      await request(app.getHttpServer()).get('/api/ping').expect(200);
+      await request(app.getHttpServer()).get('/assets/app.js').expect(200);
+    } finally {
+      renameSync(updatingPath, indexPath);
+    }
+    await request(app.getHttpServer()).get('/message-tester').expect(200);
   });
 
   it('never answers an /assets path with the SPA shell, even extensionless', async () => {

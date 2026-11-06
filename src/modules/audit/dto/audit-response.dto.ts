@@ -54,3 +54,10 @@ export class AuditListResponseDto {
   @ApiProperty({ description: 'Total matching entries, for paging.', example: 128 })
   total!: number;
 }
+
+export class LogListResponseDto extends AuditListResponseDto {
+  @ApiProperty({ example: 50, maximum: 200 })
+  limit!: number;
+  @ApiProperty({ example: 0 })
+  offset!: number;
+}

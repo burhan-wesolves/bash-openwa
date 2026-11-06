@@ -1,3 +1,5 @@
+import { AuditService } from '../../audit/audit.service';
+import { AuditAction } from '../../audit/entities/audit-log.entity';
 import { DelayedError, Job } from 'bullmq';
 import { FindOperator, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +27,7 @@ jest.mock('undici', () => {
  */
 describe('WebhookProcessor', () => {
   let processor: WebhookProcessor;
+  let activity: { recordActivity: jest.Mock };
   let repo: { update: jest.Mock; findOne: jest.Mock };
   let failureRepo: { insert: jest.Mock; count: jest.Mock; delete: jest.Mock; update: jest.Mock };
   let outbox: { close: jest.Mock };
@@ -112,12 +115,14 @@ describe('WebhookProcessor', () => {
     };
     hookManager = { execute: jest.fn().mockResolvedValue({ continue: true, data: {} }) };
     configService = { get: jest.fn((key: string, def?: unknown) => (key === 'webhook.timeout' ? 25000 : def)) };
+    activity = { recordActivity: jest.fn().mockResolvedValue(undefined) };
     processor = new WebhookProcessor(
       repo as unknown as Repository<Webhook>,
       failureRepo as unknown as Repository<WebhookDeliveryFailure>,
       hookManager as unknown as HookManager,
       configService as unknown as ConfigService,
       outbox as unknown as WebhookOutboxService,
+      activity as unknown as AuditService,
     );
     // The merged delivery path uses withSafeFetch (undici), so mock undici's fetch, not global.fetch.
     mockFetch = undiciFetch as jest.Mock;
@@ -147,6 +152,14 @@ describe('WebhookProcessor', () => {
     const result = await processor.process(makeJob());
 
     expect(result.success).toBe(true);
+    expect(activity.recordActivity).toHaveBeenCalledWith(
+      AuditAction.WEBHOOK_ATTEMPT,
+      expect.objectContaining({ deliveryId: 'd', attempt: 1 }),
+    );
+    expect(activity.recordActivity).toHaveBeenCalledWith(
+      AuditAction.WEBHOOK_DELIVERED,
+      expect.objectContaining({ deliveryId: 'd', statusCode: 200, outcome: 'delivered' }),
+    );
     expect(repo.update).toHaveBeenCalledTimes(1);
     const updateArgs = repo.update.mock.calls[0] as unknown as [string, { lastTriggeredAt: Date }];
     expect(updateArgs[0]).toBe('wh-1');
@@ -167,6 +180,10 @@ describe('WebhookProcessor', () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' });
 
     await expect(processor.process(makeJob({ maxRetries: 3 }, 0))).rejects.toThrow();
+    expect(activity.recordActivity).toHaveBeenCalledWith(
+      AuditAction.WEBHOOK_RETRY,
+      expect.objectContaining({ deliveryId: 'd', outcome: 'retrying' }),
+    );
     expect(hookManager.execute).not.toHaveBeenCalledWith('webhook:error', expect.anything(), expect.anything());
   });
 

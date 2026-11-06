@@ -698,10 +698,20 @@ export class MessageService implements PluginMessagePort {
 
   async deleteMessage(
     sessionId: string,
-    dto: { chatId: string; messageId: string; forEveryone?: boolean },
+    dto: { chatId?: string; messageId: string; forEveryone?: boolean },
   ): Promise<void> {
     const engine = this.getEngine(sessionId);
-    await engine.deleteMessage(dto.chatId, dto.messageId, dto.forEveryone ?? true);
+    let chatId = dto.chatId;
+    if (chatId === undefined && dto.forEveryone === false) {
+      const stored = await this.messageRepository.findOne({
+        where: { sessionId, waMessageId: dto.messageId },
+        select: { chatId: true },
+      });
+      if (!stored?.chatId) throw new NotFoundException('Message not found in this session');
+      chatId = stored.chatId;
+    }
+    if (!chatId) throw new BadRequestException('chatId is required for delete-for-everyone');
+    await engine.deleteMessage(chatId, dto.messageId, dto.forEveryone ?? true);
 
     // Clear the stored message the same way an engine revoke does (body, media and metadata), on
     // its mutation chain. Best-effort: never rejects. No localized display string is persisted

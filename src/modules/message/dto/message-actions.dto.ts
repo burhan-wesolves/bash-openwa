@@ -12,6 +12,7 @@ import {
   MaxLength,
   IsIn,
   Validate,
+  ValidateIf,
 } from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import {
@@ -217,23 +218,26 @@ export class ReactMessageDto {
 }
 
 export class DeleteMessageDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Chat ID. May be omitted for delete-for-me to resolve from the stored message.' })
+  @ValidateIf((object: DeleteMessageDto, value: unknown) => object.forEveryone !== false || value !== undefined)
   @IsString()
   @IsNotEmpty()
-  chatId!: string;
+  chatId?: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
   messageId!: string;
 
-  @ApiPropertyOptional({ description: 'Delete for everyone (default true)' })
+  @ApiPropertyOptional({
+    description: 'Delete for everyone (default true). Use false for delete-for-me. Null is rejected.',
+  })
   // The field's only purpose is to say "no, delete locally" — the default is already true
   // (message.service.ts). Under the pipe's implicit conversion a string `"false"` would become
   // boolean `true`, turning an explicit local-only delete into an irreversible retraction from the
   // recipient's device, so the value is read strictly rather than interpreted.
   @ToStrictBoolean()
-  @IsOptional()
+  @ValidateIf((_object: DeleteMessageDto, value: unknown) => value !== undefined)
   @IsBoolean()
   forEveryone?: boolean;
 }

@@ -176,7 +176,7 @@ export class SessionEngineLeafEvents {
    * resolveReconnectConfig). Never throws: a reject failure is logged, and the `call.received`
    * dispatch already happened before this ran.
    */
-  async maybeAutoRejectCall(id: string, engine: IWhatsAppEngine, callId: string): Promise<void> {
+  async maybeAutoRejectCall(id: string, engine: IWhatsAppEngine, callId: string, caller?: string): Promise<void> {
     let session: Session | null;
     try {
       session = await this.sessionRepository.findOne({ where: { id } });
@@ -192,6 +192,10 @@ export class SessionEngineLeafEvents {
     }
     try {
       await engine.rejectCall(callId);
+      const reply = session.config.callRejectMessage;
+      if (caller && typeof reply === 'string' && reply.trim()) {
+        await engine.sendTextMessage(caller, reply);
+      }
       this.logger.log('Auto-rejected incoming call', {
         sessionId: id,
         callId,

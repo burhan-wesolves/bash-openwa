@@ -471,14 +471,14 @@ export function Sessions() {
     };
   }, [selectedSessionId]);
 
-  const handleAutoRejectToggle = async (next: boolean) => {
+  const handleConfigChange = async (key: keyof SessionConfig, next: boolean | string) => {
     if (!selectedSessionId || !sessionConfig) return;
     const id = selectedSessionId;
     const previous = sessionConfig;
-    setSessionConfig({ ...sessionConfig, autoRejectCalls: next });
+    setSessionConfig({ ...sessionConfig, [key]: next });
     setSavingConfigIds(current => new Set(current).add(id));
     try {
-      const saved = await sessionApi.updateConfig(id, { autoRejectCalls: next });
+      const saved = await sessionApi.updateConfig(id, { [key]: next });
       if (configSessionId.current === id) setSessionConfig(saved);
     } catch (err) {
       // Revert: an optimistic toggle left flipped would tell the operator calls are being rejected
@@ -997,24 +997,49 @@ export function Sessions() {
               </span>
             </div>
             {sessionConfig && (
-              <div className="detail-item detail-item-toggle">
-                <div className="detail-toggle-row">
-                  <span className="detail-label" id="auto-reject-calls-label">
-                    {t('sessions.details.autoRejectCalls')}
-                  </span>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      aria-labelledby="auto-reject-calls-label"
-                      checked={sessionConfig.autoRejectCalls}
-                      disabled={!canWrite || savingConfigIds.has(selectedSession.id)}
-                      onChange={e => void handleAutoRejectToggle(e.target.checked)}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-                <small className="detail-hint">{t('sessions.details.autoRejectCallsHint')}</small>
-              </div>
+              <>
+                {(['autoRejectCalls', 'ignoreGroups', 'alwaysOnline', 'readMessages', 'readStatus'] as const).map(
+                  key => (
+                    <div className="detail-item detail-item-toggle" key={key}>
+                      <div className="detail-toggle-row">
+                        <span
+                          className="detail-label"
+                          id={key === 'autoRejectCalls' ? 'auto-reject-calls-label' : key + '-label'}
+                        >
+                          {t('sessions.details.' + key)}
+                        </span>
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            aria-labelledby={key === 'autoRejectCalls' ? 'auto-reject-calls-label' : key + '-label'}
+                            checked={sessionConfig[key] === true}
+                            disabled={!canWrite || savingConfigIds.has(selectedSession.id)}
+                            onChange={e => void handleConfigChange(key, e.target.checked)}
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+                      <small className="detail-hint">{t('sessions.details.' + key + 'Hint')}</small>
+                      {key === 'autoRejectCalls' && (
+                        <label className="detail-hint">
+                          {t('sessions.details.callRejectMessage')}
+                          <textarea
+                            key={selectedSession.id + sessionConfig.callRejectMessage}
+                            aria-label={t('sessions.details.callRejectMessage')}
+                            defaultValue={sessionConfig.callRejectMessage ?? ''}
+                            maxLength={4096}
+                            disabled={!canWrite || savingConfigIds.has(selectedSession.id)}
+                            onBlur={e => {
+                              if (e.target.value !== (sessionConfig.callRejectMessage ?? ''))
+                                void handleConfigChange('callRejectMessage', e.target.value);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ),
+                )}
+              </>
             )}
           </div>
         </Modal>

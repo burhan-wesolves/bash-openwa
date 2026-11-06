@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { LogQueryDto } from './dto/log-query.dto';
 import { Repository, Between, LessThan, In } from 'typeorm';
 import { AuditLog, AuditAction, AuditSeverity } from './entities/audit-log.entity';
 import { ApiKey } from '../auth/entities/api-key.entity';
@@ -106,6 +107,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     const metadata =
       context.metadata || requestId ? { ...(context.metadata ?? {}), ...(requestId ? { requestId } : {}) } : null;
     const auditLog = this.auditRepository.create({
+      createdAt: new Date(),
       action,
       severity,
       apiKeyId: apiKeyId || null,
@@ -145,6 +147,89 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
   async logError(action: AuditAction, context: AuditContext = {}): Promise<AuditLog | null> {
     return this.log(action, context, AuditSeverity.ERROR);
+  }
+
+  /** Operational records deliberately exclude event bodies, QR codes, auth headers and webhook secrets. */
+  async recordActivity(
+    action: AuditAction,
+    input: {
+      sessionId: string;
+      event: string;
+      transport?: string;
+      eventId?: string;
+      webhookId?: string;
+      deliveryId?: string;
+      attempt?: number;
+      durationMs?: number;
+      statusCode?: number;
+      outcome: string;
+      reason?: string;
+      matched?: number;
+      active?: number;
+    },
+  ): Promise<void> {
+    const { sessionId, statusCode, reason, ...metadata } = input;
+    const severity =
+      input.outcome === 'failed'
+        ? AuditSeverity.ERROR
+        : input.outcome === 'retrying'
+          ? AuditSeverity.WARN
+          : AuditSeverity.INFO;
+    await this.log(
+      action,
+      {
+        sessionId,
+        statusCode,
+        metadata: { ...metadata, source: action === AuditAction.EVENT_EMITTED ? 'event' : 'webhook' },
+        errorMessage: reason?.replace(/https?:\/\/[^\s]+/g, '[URL]').slice(0, 1000),
+      },
+      severity,
+    ).catch(error => this.logger.error('Failed to record activity', String(error)));
+  }
+
+  async findLogs(options: LogQueryDto, allowedSessions?: string[] | null) {
+    const scope = resolveSessionScope(allowedSessions, options.sessionId);
+    if (scope !== null && !scope.length) return { data: [], total: 0, limit: options.limit, offset: options.offset };
+    const qb = this.auditRepository.createQueryBuilder('log');
+    if (scope !== null) qb.andWhere('log.sessionId IN (:...scope)', { scope });
+    for (const field of ['severity', 'action'] as const) {
+      if (options[field]) qb.andWhere('log.' + field + ' = :' + field, { [field]: options[field] });
+    }
+    // The main audit connection is always SQLite; metadata is stored as valid simple-json.
+    for (const field of ['event', 'webhookId', 'deliveryId', 'eventId', 'outcome'] as const) {
+      if (options[field])
+        qb.andWhere("json_extract(log.metadata, '$." + field + "') = :" + field, { [field]: options[field] });
+    }
+    if (options.source)
+      qb.andWhere("COALESCE(json_extract(log.metadata, '$.source'), 'audit') = :source", { source: options.source });
+    if (options.startDate) qb.andWhere('log.createdAt >= :start', { start: new Date(options.startDate) });
+    if (options.endDate) qb.andWhere('log.createdAt <= :end', { end: new Date(options.endDate) });
+    if (options.search?.trim()) {
+      const text =
+        '%' +
+        options.search
+          .trim()
+          .toLowerCase()
+          .replace(/[\\%_]/g, c => '\\' + c) +
+        '%';
+      qb.andWhere(
+        "(LOWER(log.action) LIKE :text ESCAPE '\\' OR LOWER(COALESCE(log.errorMessage, '')) LIKE :text ESCAPE '\\' OR LOWER(COALESCE(log.metadata, '')) LIKE :text ESCAPE '\\' OR LOWER(COALESCE(log.sessionName, '')) LIKE :text ESCAPE '\\' OR LOWER(COALESCE(log.sessionId, '')) LIKE :text ESCAPE '\\')",
+        { text },
+      );
+    }
+    const sortColumns = {
+      createdAt: 'log.createdAt',
+      action: 'log.action',
+      severity: 'log.severity',
+      statusCode: 'log.statusCode',
+    };
+    qb.orderBy(
+      sortColumns[options.sortBy] ?? sortColumns.createdAt,
+      options.sortOrder === 'ASC' ? 'ASC' : 'DESC',
+    ).addOrderBy('log.id', options.sortOrder === 'ASC' ? 'ASC' : 'DESC');
+    qb.take(options.limit).skip(options.offset);
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, limit: options.limit, offset: options.offset };
   }
 
   async findAll(

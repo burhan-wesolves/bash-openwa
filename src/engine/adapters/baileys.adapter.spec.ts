@@ -252,6 +252,20 @@ function firstEditedMessage(callback: jest.Mock): EditedMessage {
 }
 
 describe('BaileysAdapter lifecycle & status', () => {
+  it.each([true, false])('passes per-session online preference (%s) to the socket', async enabled => {
+    const adapter = new BaileysAdapter({
+      sessionId: 'sess-1',
+      dbSessionId: 'db-uuid-1',
+      authDir: './data/baileys',
+      messageStore: fakeStore,
+      alwaysOnline: enabled,
+    });
+    await adapter.initialize(noopCallbacks());
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const makeSocket = jest.requireMock('@whiskeysockets/baileys').default as jest.Mock;
+    expect(makeSocket).toHaveBeenLastCalledWith(expect.objectContaining({ markOnlineOnConnect: enabled }));
+  });
+
   beforeEach(() => {
     fakeSock.user = undefined;
     fakeSock.ws.isOpen = true;
@@ -4673,6 +4687,17 @@ describe('BaileysAdapter store-backed ops', () => {
     expect(fakeSock.sendMessage).not.toHaveBeenCalled();
   });
 
+  it('does not change local storage or the preview when delete-for-me is not confirmed', async () => {
+    fakeStore.getMessage.mockResolvedValue(stored);
+    fakeSock.chatModify.mockRejectedValueOnce(new Error('delete not confirmed'));
+    const adapter = await ready();
+    await expect(adapter.deleteMessage('628111@s.whatsapp.net', 'TARGET', false)).rejects.toThrow(
+      'delete not confirmed',
+    );
+    expect(fakeStore.update).not.toHaveBeenCalled();
+    expect(fakeSock.sendMessage).not.toHaveBeenCalled();
+  });
+
   it.each([['not-a-number'], [Number.NaN], [Number.POSITIVE_INFINITY]])(
     'deleteMessage for-me sends a usable timestamp when the stored one is %p',
     async unusable => {
@@ -8629,12 +8654,15 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
     messageTimestamp: '1700000000',
   };
 
-  it('empties the stored copy when the API deletes a message for everyone', async () => {
-    fakeStore.getMessage.mockResolvedValue(ownStored);
-    const adapter = await started();
-    await adapter.deleteMessage(PEER, 'TARGET', true);
-    expect(changed('TARGET', ownStored)).toEqual({ ...ownStored, message: null });
-  });
+  it.each([true, false])(
+    'empties the stored copy when the API deletes a message (forEveryone=%s)',
+    async forEveryone => {
+      fakeStore.getMessage.mockResolvedValue(ownStored);
+      const adapter = await started();
+      await adapter.deleteMessage(PEER, 'TARGET', forEveryone);
+      expect(changed('TARGET', ownStored)).toEqual({ ...ownStored, message: null });
+    },
+  );
 
   it('still answers a delete for everyone when the store cannot record it', async () => {
     // The delete already reached WhatsApp; failing the request now would invite a retry of it.
@@ -8649,17 +8677,20 @@ describe('BaileysAdapter keeps the message store in step with edits and deletes'
     );
   });
 
-  it('refuses a message the API deleted for everyone even when the store could not record the delete', async () => {
-    fakeStore.getMessage.mockResolvedValue(ownStored);
-    fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
-    const adapter = await started();
-    jest.spyOn(loggerOf(adapter), 'warn').mockImplementation(() => undefined);
-    await adapter.deleteMessage(PEER, 'TARGET', true);
-    fakeSock.sendMessage.mockClear();
+  it.each([true, false])(
+    'refuses a deleted message even when the store write failed (forEveryone=%s)',
+    async forEveryone => {
+      fakeStore.getMessage.mockResolvedValue(ownStored);
+      fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+      const adapter = await started();
+      jest.spyOn(loggerOf(adapter), 'warn').mockImplementation(() => undefined);
+      await adapter.deleteMessage(PEER, 'TARGET', forEveryone);
+      fakeSock.sendMessage.mockClear();
 
-    await expect(adapter.replyToMessage(PEER, 'TARGET', 'quoting it')).rejects.toBeInstanceOf(MessageNotFoundError);
-    expect(fakeSock.sendMessage).not.toHaveBeenCalled();
-  });
+      await expect(adapter.replyToMessage(PEER, 'TARGET', 'quoting it')).rejects.toBeInstanceOf(MessageNotFoundError);
+      expect(fakeSock.sendMessage).not.toHaveBeenCalled();
+    },
+  );
 
   it('logs rather than drops an inbound delete the store cannot record', async () => {
     fakeStore.update.mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));

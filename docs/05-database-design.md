@@ -403,15 +403,25 @@ clears it, and so does a gateway restart.
 {
   "maxReconnectAttempts": 5,
   "reconnectBaseDelay": 5000,
-  "autoRejectCalls": false
+  "autoRejectCalls": false,
+  "callRejectMessage": "",
+  "ignoreGroups": false,
+  "alwaysOnline": false,
+  "readMessages": false,
+  "readStatus": false
 }
 ```
 
-| Key                    | Default   | Effect                                                                                                                                                                                                 |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `maxReconnectAttempts` | unlimited | Reconnect attempt cap, clamped to 0-20 (`0` disables reconnect entirely). Bounds the gateway's own reconnect: every reconnect on whatsapp-web.js, and on Baileys only the one after a logged-out close |
-| `reconnectBaseDelay`   | `5000` ms | Base delay of the reconnect backoff, clamped to 1000-300000 ms. Same engine scope as `maxReconnectAttempts`                                                                                            |
-| `autoRejectCalls`      | `false`   | Auto-reject an incoming call as soon as it rings (Baileys only)                                                                                                                                        |
+| Key                    | Default            | Effect                                                                                                                                                                                                 |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `maxReconnectAttempts` | unlimited          | Reconnect attempt cap, clamped to 0-20 (`0` disables reconnect entirely). Bounds the gateway's own reconnect: every reconnect on whatsapp-web.js, and on Baileys only the one after a logged-out close |
+| `reconnectBaseDelay`   | `5000` ms          | Base delay of the reconnect backoff, clamped to 1000-300000 ms. Same engine scope as `maxReconnectAttempts`                                                                                            |
+| `autoRejectCalls`      | `false`            | Auto-reject an incoming call as soon as it rings (Baileys only)                                                                                                                                        |
+| `callRejectMessage`    | empty              | Optional reply sent to the caller after successful rejection                                                                                                                                           |
+| `ignoreGroups`         | `false`            | Drop incoming group messages before hooks, persistence, webhooks and automatic replies                                                                                                                 |
+| `alwaysOnline`         | engine environment | Publish online/offline presence immediately and reapply after reconnect; Baileys inherits BAILEYS_MARK_ONLINE_ON_CONNECT when unset (true unless false)                                                |
+| `readMessages`         | `false`            | Send read receipts for each new incoming message                                                                                                                                                       |
+| `readStatus`           | `false`            | Send read receipts for new incoming status posts                                                                                                                                                       |
 
 The gateway's reconnect attempt count restarts only once the session has stayed READY for 5 minutes,
 so a session that keeps dropping sooner than that spends a finite `maxReconnectAttempts` and ends
@@ -425,9 +435,10 @@ above (the only way back to unlimited reconnect attempts once a cap is set).
 When each takes effect differs, because each is read at a different moment: `autoRejectCalls` is
 re-read from this row on every incoming call, so a patch applies to the next call. The two reconnect
 keys are read once per `start()` into the in-memory reconnect state, so a patch applies on the next
-start and leaves a reconnect sequence already in flight alone.
+start and leaves a reconnect sequence already in flight alone. Message/status reading and group filtering
+apply to new arrivals without restarting; enabling reading does not bulk-read the existing backlog.
 
-`GET /api/sessions/{sessionId}/config` reports the effective values. It reports only these three keys and
+`GET /api/sessions/{sessionId}/config` reports the effective values. It reports only these recognised settings and
 never the raw column — `config` is stripped from `SessionResponseDto` alongside the
 credential-bearing `proxyUrl`, and echoing an opaque blob back would defeat that.
 

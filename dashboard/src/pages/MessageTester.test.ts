@@ -942,3 +942,100 @@ test('Send stays disabled while a batch cancel is in flight, so its answer canno
   });
   assert.equal(sendButton().disabled, false);
 });
+
+async function renderDeleteTester(
+  options: { viewer?: boolean; fail?: number; gate?: Promise<void>; canonicalId?: string; unregistered?: boolean } = {},
+) {
+  window.sessionStorage.setItem('openwa_user_role', options.viewer ? 'viewer' : 'operator');
+  const calls: { path: string; body?: Record<string, unknown> }[] = [];
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    calls.push({ path, ...(init?.body ? { body: JSON.parse(String(init.body)) as Record<string, unknown> } : {}) });
+    if (path.endsWith('/sessions'))
+      return Promise.resolve(jsonResponse([{ id: 's1', name: 'Main', status: 'ready', phone: '15550000000' }]));
+    if (path.includes('/contacts/check/'))
+      return Promise.resolve(
+        jsonResponse({ exists: !options.unregistered, whatsappId: options.canonicalId ?? '15550000000@c.us' }),
+      );
+    if (path.endsWith('/messages/delete')) {
+      const answer = () =>
+        jsonResponse(options.fail ? { message: 'Message not found' } : { success: true }, options.fail ?? 200);
+      return options.gate ? options.gate.then(answer) : Promise.resolve(answer());
+    }
+    return Promise.resolve(jsonResponse([]));
+  }) as typeof fetch;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 1000 } } });
+  rtl.render(
+    createElement(QueryClientProvider, { client }, createElement(RoleProvider, null, createElement(MessageTester))),
+  );
+  await rtl.screen.findByRole('option', { name: /Main/ });
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete for me' }));
+  return calls;
+}
+
+function fillDeleteTarget(messageId = 'fixture-message') {
+  rtl.fireEvent.change(rtl.screen.getByLabelText('Message ID to delete'), { target: { value: messageId } });
+}
+
+test('delete-for-me requires only the message ID and never checks phone registration', async () => {
+  const calls = await renderDeleteTester({ unregistered: true });
+  const button = rtl.screen.getByRole('button', { name: 'Delete message for me' }) as HTMLButtonElement;
+  assert.equal(rtl.screen.queryByLabelText('Recipient Phone Number'), null);
+  assert.equal(rtl.screen.queryByRole('button', { name: 'Group' }), null);
+  assert.equal(button.disabled, true);
+  fillDeleteTarget('   ');
+  assert.equal(button.disabled, true);
+  fillDeleteTarget(' fixture-message ');
+  assert.equal(button.disabled, false);
+  rtl.fireEvent.click(button);
+  await rtl.screen.findByText('Message deleted for me');
+  const deletes = calls.filter(call => call.path.endsWith('/messages/delete'));
+  assert.equal(deletes.length, 1);
+  assert.deepEqual(deletes[0].body, { messageId: 'fixture-message', forEveryone: false });
+  assert.equal(
+    calls.some(call => /contacts\/check|messages\/send-/.test(call.path)),
+    false,
+  );
+});
+
+test('delete-for-me displays a route error and does not claim success', async () => {
+  const calls = await renderDeleteTester({ fail: 404 });
+  fillDeleteTarget();
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Delete message for me' }));
+  await rtl.screen.findByText('Delete failed');
+  assert.ok(rtl.screen.getByText('HTTP 404'));
+  assert.ok(rtl.screen.getByText('Message not found'));
+  assert.equal(rtl.screen.queryByText('Message deleted for me'), null);
+  assert.equal(calls.filter(call => call.path.endsWith('/messages/delete')).length, 1);
+});
+
+test('a viewer cannot submit delete-for-me', async () => {
+  const calls = await renderDeleteTester({ viewer: true });
+  fillDeleteTarget();
+  const button = rtl.screen.getByRole('button', { name: 'View Only' }) as HTMLButtonElement;
+  assert.equal(button.disabled, true);
+  rtl.fireEvent.click(button);
+  assert.equal(
+    calls.some(call => call.path.endsWith('/messages/delete')),
+    false,
+  );
+});
+
+test('delete-for-me ignores double clicks while the request is pending', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  const calls = await renderDeleteTester({ gate });
+  fillDeleteTarget();
+  const button = rtl.screen.getByRole('button', { name: 'Delete message for me' });
+  rtl.fireEvent.click(button);
+  rtl.fireEvent.click(button);
+  await rtl.waitFor(() => assert.equal(calls.filter(call => call.path.endsWith('/messages/delete')).length, 1));
+  assert.equal((rtl.screen.getByRole('button', { name: 'Deleting for me...' }) as HTMLButtonElement).disabled, true);
+  await rtl.act(async () => {
+    release();
+    await gate;
+  });
+  await rtl.screen.findByText('Message deleted for me');
+});

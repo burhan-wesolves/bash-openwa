@@ -24,6 +24,7 @@ export interface EngineCreateOptions {
   sessionId: string;
   /** Session UUID (Session.id) — the DB-row key for FK-bound stores (e.g. baileys_stored_messages). */
   dbSessionId: string;
+  alwaysOnline?: boolean;
   proxyUrl?: string;
   proxyType?: 'http' | 'https' | 'socks4' | 'socks5';
 }
@@ -131,6 +132,7 @@ export class EngineFactory implements OnModuleInit {
       return enginePlugin.instance.createEngine({
         sessionId: options.sessionId,
         dbSessionId: options.dbSessionId,
+        alwaysOnline: options.alwaysOnline,
         proxyUrl: options.proxyUrl,
         proxyType: options.proxyType,
         sessionDataPath: this.sessionDataPath(),

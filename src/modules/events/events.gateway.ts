@@ -763,6 +763,12 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
    * Emit event to specific rooms based on sessionId and event type
    */
   private emitToRooms(sessionId: string, event: string, data: unknown, exceptRoom?: string): void {
+    void this.auditService.recordActivity?.(AuditAction.EVENT_EMITTED, {
+      sessionId,
+      event,
+      transport: 'websocket',
+      outcome: 'emitted',
+    });
     const eventMessage: WSEventMessage = {
       type: 'event',
       payload: { event, sessionId, data },

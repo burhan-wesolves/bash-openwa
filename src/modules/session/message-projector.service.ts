@@ -1,4 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { applyIncomingSettings } from './session-message-settings';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -370,8 +371,19 @@ export class MessageProjector {
     // Execute hook for message received - plugins can modify or stop processing. The hook chain and
     // sender resolution run concurrently across messages; the catch is attached now so a failure
     // while the commit waits its turn is never an unhandled rejection.
-    const prepared = this.startHookChain(id, engine, turn, messageData, () =>
-      this.hookManager
+    const prepared = this.startHookChain(id, engine, turn, messageData, async () => {
+      if (
+        !(await applyIncomingSettings(
+          this.sessionRepository,
+          id,
+          engine,
+          message,
+          () => this.engines.isLive(id, engine),
+          error => this.logger.warn('Incoming message settings failed', { sessionId: id, error: String(error) }),
+        ))
+      )
+        return null;
+      return this.hookManager
         .execute('message:received', messageData, {
           sessionId: id,
           source: 'Engine',
@@ -383,8 +395,8 @@ export class MessageProjector {
         })
         .then(({ data }) =>
           this.prepareInboundMessage(id, this.messageOrEngineCopy(id, 'message:received', data, message)),
-        ),
-    ).catch(onFailure);
+        );
+    }).catch(onFailure);
     this.commitInTurn(id, message, turn, async () => {
       try {
         const finalMessage = await prepared;
@@ -407,7 +419,7 @@ export class MessageProjector {
     engine: IWhatsAppEngine,
     turn: InboundTurn | undefined,
     messageData: InboundMessageData,
-    run: () => Promise<InboundMessageData>,
+    run: () => Promise<InboundMessageData | null>,
   ): Promise<InboundMessageData | null> {
     if (!turn) return run();
     const { entry } = turn;
@@ -496,13 +508,22 @@ export class MessageProjector {
   }
 
   /** `isStatusBroadcast` arm of {@link handleInboundMessage}: ingest into the status store, not the message pipeline. */
-  private ingestInboundStatus(id: string, engine: IWhatsAppEngine, message: IncomingMessage): Promise<void> {
+  private async ingestInboundStatus(id: string, engine: IWhatsAppEngine, message: IncomingMessage): Promise<void> {
     // Status/Story posts arrive via the inbound path for some engines; ingest them into the
     // status store instead of the message pipeline. Mirrors the isStatusBroadcast guard in
     // onMessageCreate below: an own-send echo (fromMe) stays a plain drop — never ingested,
     // never dispatched — so a status you posted never re-appears in your own webhooks/API as
     // if a contact had posted it.
     if (message.fromMe) return Promise.resolve();
+    await applyIncomingSettings(
+      this.sessionRepository,
+      id,
+      engine,
+      message,
+      () => this.engines.isLive(id, engine),
+      error => this.logger.warn('Status read receipt failed', { sessionId: id, error: String(error) }),
+    );
+    if (!this.engines.isLive(id, engine)) return;
     const status = buildIncomingStatus(message);
     if (!status) return Promise.resolve();
     return (

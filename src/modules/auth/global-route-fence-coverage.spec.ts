@@ -17,6 +17,7 @@ import { basename, join, sep } from 'path';
  * Key format: `<controller file basename> :: <handler name>`. Every entry needs a reason.
  */
 const ALLOWLIST = new Map<string, string>([
+  ['logs.controller.ts :: findAll', 'scope-filters every result using resolveSessionScope'],
   ['audit.controller.ts :: findAll', 'scope-filters rows via resolveSessionScope'],
   ['webhooks-list.controller.ts :: findAll', 'scope-filters rows via the calling key'],
   ['webhooks-list.controller.ts :: deliveryFailures', 'scope-filters rows via the calling key'],

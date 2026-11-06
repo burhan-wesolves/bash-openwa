@@ -26,12 +26,17 @@ if (API_ORIGIN) warnIfInsecureHttpUrl(API_ORIGIN, 'VITE_API_URL');
 // =============================================================================
 
 /**
- * The three tunable keys, as the gateway resolves them — not the raw stored column, which the API
+ * The tunable settings, as the gateway resolves them — not the raw stored column, which the API
  * never returns. `maxReconnectAttempts` is null when reconnects are unlimited, which is the default
  * and which no number in the accepted 0-20 range can express.
  */
 export interface SessionConfig {
   autoRejectCalls: boolean;
+  callRejectMessage: string;
+  ignoreGroups: boolean;
+  alwaysOnline: boolean;
+  readMessages: boolean;
+  readStatus: boolean;
   maxReconnectAttempts: number | null;
   reconnectBaseDelay: number;
 }
@@ -856,7 +861,7 @@ export const sessionApi = {
   delete: (id: string) => request<void>(`/sessions/${id}`, { method: 'DELETE' }),
   getConfig: (id: string) => request<SessionConfig>(`/sessions/${id}/config`),
   // PATCH merges: only the keys sent are touched. Send null to clear one back to its default.
-  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, boolean | number | null>>) =>
+  updateConfig: (id: string, patch: Partial<Record<keyof SessionConfig, boolean | number | string | null>>) =>
     request<SessionConfig>(`/sessions/${id}/config`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
@@ -1092,6 +1097,34 @@ export const apiKeyApi = {
 // Audit/Logs API
 // =============================================================================
 
+export interface LogFilters {
+  action?: string;
+  severity?: string;
+  source?: string;
+  event?: string;
+  outcome?: string;
+  sessionId?: string;
+  webhookId?: string;
+  deliveryId?: string;
+  eventId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const logsApi = {
+  list: (params: LogFilters = {}) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params))
+      if (value !== undefined && value !== '') query.set(key, String(value));
+    return request<{ data: AuditLog[]; total: number; limit: number; offset: number }>(`/logs?${query}`);
+  },
+};
+
 export const auditApi = {
   list: (params?: { action?: string; severity?: string; limit?: number; offset?: number }) => {
     const query = new URLSearchParams();
@@ -1196,8 +1229,8 @@ export const messageApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  delete: (sessionId: string, data: { chatId: string; messageId: string; forEveryone?: boolean }) =>
-    request<void>(`/sessions/${sessionId}/messages/delete`, {
+  delete: (sessionId: string, data: { chatId?: string; messageId: string; forEveryone?: boolean }) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/messages/delete`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

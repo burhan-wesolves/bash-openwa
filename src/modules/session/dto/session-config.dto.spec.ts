@@ -13,6 +13,22 @@ const parse = (body: Record<string, unknown>): UpdateSessionConfigDto =>
 const errorsFor = (body: Record<string, unknown>): ReturnType<typeof validateSync> => validateSync(parse(body));
 
 describe('UpdateSessionConfigDto', () => {
+  it.each(['ignoreGroups', 'alwaysOnline', 'readMessages', 'readStatus'])(
+    'validates and coerces %s as a strict optional boolean',
+    key => {
+      for (const value of [true, false, 'true', 'false', null]) expect(errorsFor({ [key]: value })).toHaveLength(0);
+      for (const value of ['yes', 1, {}, []]) expect(errorsFor({ [key]: value }).length).toBeGreaterThan(0);
+      expect(parse({ [key]: 'false' })[key as keyof UpdateSessionConfigDto]).toBe(false);
+    },
+  );
+
+  it('limits rejection replies and preserves null for clearing them', () => {
+    expect(errorsFor({ callRejectMessage: 'x'.repeat(4096) })).toHaveLength(0);
+    expect(errorsFor({ callRejectMessage: 'x'.repeat(4097) }).length).toBeGreaterThan(0);
+    expect(errorsFor({ callRejectMessage: {} }).length).toBeGreaterThan(0);
+    expect(parse({ callRejectMessage: null }).callRejectMessage).toBeNull();
+  });
+
   it('accepts an empty body — every key is optional', () => {
     expect(errorsFor({})).toHaveLength(0);
   });

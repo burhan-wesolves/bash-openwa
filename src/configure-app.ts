@@ -120,7 +120,7 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
   // response header. A shared cookie is deliberately avoided: a second dashboard tab could overwrite
   // it and make the first tab's srcdoc scripts fail CSP. Assets and Nest-owned routes fall through.
   if (dashboard.enabled && existsSync(join(dashboard.distDir, 'index.html'))) {
-    const dashboardIndex = readFileSync(join(dashboard.distDir, 'index.html'), 'utf8');
+    const dashboardIndexPath = join(dashboard.distDir, 'index.html');
     app.use((req: Request, res: Response, next: NextFunction) => {
       // Lowercased because routing matches these prefixes case-insensitively.
       const path = req.path.toLowerCase();
@@ -139,7 +139,19 @@ export function configureApp(app: INestApplication, options: ConfigureAppOptions
       if (!documentRequest) return next();
 
       res.setHeader('Cache-Control', 'no-store');
-      res.type('html').send(injectDashboardCspNonce(dashboardIndex, res.locals.cspNonce as string));
+      try {
+        // A rebuild replaces the entry document and its hashed assets while this process stays up.
+        // Keeping the HTML from startup pins browsers to deleted entry files, even after a reload.
+        const dashboardIndex = readFileSync(dashboardIndexPath, 'utf8');
+        res.type('html').send(injectDashboardCspNonce(dashboardIndex, res.locals.cspNonce as string));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          res.setHeader('Retry-After', '1');
+          res.status(503).type('text').send('Dashboard update in progress. Reload this page shortly.');
+          return;
+        }
+        next(error);
+      }
     });
   }
 

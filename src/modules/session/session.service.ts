@@ -482,7 +482,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   }
 
   /**
-   * Project the opaque `config` column onto the three keys the engine actually reads, resolved
+   * Project the opaque `config` column onto the settings the engine actually reads, resolved
    * through the same clamp the engine uses — so a legacy row holding an out-of-range value reports
    * what will really happen rather than what someone once wrote.
    */
@@ -492,6 +492,14 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       // Strict `=== true` mirrors maybeAutoRejectCall: a truthy string or 1 left in the opaque blob
       // must not read as opted in here when it would not opt in there.
       autoRejectCalls: config?.autoRejectCalls === true,
+      callRejectMessage: typeof config?.callRejectMessage === 'string' ? config.callRejectMessage : '',
+      ignoreGroups: config?.ignoreGroups === true,
+      alwaysOnline:
+        typeof config?.alwaysOnline === 'boolean'
+          ? config.alwaysOnline
+          : process.env.BAILEYS_MARK_ONLINE_ON_CONNECT !== 'false',
+      readMessages: config?.readMessages === true,
+      readStatus: config?.readStatus === true,
       maxReconnectAttempts: Number.isFinite(maxAttempts) ? maxAttempts : null,
       reconnectBaseDelay: baseDelay,
     };
@@ -511,10 +519,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
    * value can express (`maxReconnectAttempts` unlimited). `undefined` — the key simply absent from
    * the request — leaves the stored value alone.
    *
-   * No restart, and deliberately no engine call: `autoRejectCalls` is re-read from this row on
+   * No restart: `autoRejectCalls` is re-read from this row on
    * every incoming call, so the write alone is what takes effect. The reconnect pair is read once
    * per start() into reconnectStates, so it lands on the next start; that asymmetry is documented
-   * on the DTO rather than papered over by forcing a reconnect nobody asked for.
+   * on the DTO. Online presence is also applied to a running engine when explicitly changed.
    */
   async updateConfig(id: string, dto: UpdateSessionConfigDto): Promise<SessionConfigResponseDto> {
     // Compare-and-swap on the stored text: the write lands only while the column still holds the blob
@@ -533,7 +541,17 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       const stored = row.config;
       const config = { ...((stored ? JSON.parse(stored) : null) as Record<string, unknown> | null) };
 
-      for (const key of ['autoRejectCalls', 'maxReconnectAttempts', 'reconnectBaseDelay'] as const) {
+      for (const key of [
+        'autoRejectCalls',
+        'callRejectMessage',
+        'ignoreGroups',
+        'alwaysOnline',
+        'readMessages',
+
+        'readStatus',
+        'maxReconnectAttempts',
+        'reconnectBaseDelay',
+      ] as const) {
         const value = dto[key];
         if (value === undefined) continue;
         if (value === null) {
@@ -550,6 +568,20 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
         { config: config as QueryDeepPartialEntity<Record<string, unknown>> },
       );
       if (affected !== 0) {
+        if (dto.alwaysOnline !== undefined) {
+          const engine = this.engines.get(id);
+          if (engine) {
+            try {
+              await engine.setOnlinePresence(this.projectConfig(config).alwaysOnline);
+              this.presence.setOwnIntent(id, this.projectConfig(config).alwaysOnline);
+            } catch (error) {
+              this.logger.warn('Saved online preference; publishing presence failed', {
+                sessionId: id,
+                error: String(error),
+              });
+            }
+          }
+        }
         return this.projectConfig(config);
       }
       if (attempt >= 5) {

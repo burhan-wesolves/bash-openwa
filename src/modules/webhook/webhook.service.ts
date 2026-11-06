@@ -1,3 +1,6 @@
+import { Optional } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
@@ -53,6 +56,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     private readonly sessionRepository: Repository<Session>,
     private readonly configService: ConfigService,
     private readonly delivery: WebhookDeliveryService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   /**
@@ -340,8 +344,25 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     // The same header builder as a real delivery, so the probe tests what the receiver will get.
     const headers = buildDeliveryHeaders(webhook, 'test', testPayload.idempotencyKey, deliveryId, body);
 
+    const startedAt = Date.now();
+    await this.auditService?.recordActivity(AuditAction.EVENT_EMITTED, {
+      sessionId,
+      event: 'test',
+      transport: 'webhook',
+      outcome: 'emitted',
+      deliveryId,
+    });
+    await this.auditService?.recordActivity(AuditAction.WEBHOOK_ATTEMPT, {
+      sessionId,
+      event: 'test',
+      webhookId,
+      deliveryId,
+      attempt: 1,
+      transport: 'test',
+      outcome: 'attempting',
+    });
     try {
-      return await withSafeFetch(
+      const result = await withSafeFetch(
         webhook.url,
         {
           method: 'POST',
@@ -353,7 +374,34 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
         response => ({ success: response.ok, statusCode: response.status }),
         { guard: isSsrfProtectionEnabled() },
       );
+      await this.auditService?.recordActivity(
+        result.success ? AuditAction.WEBHOOK_DELIVERED : AuditAction.WEBHOOK_FAILED,
+        {
+          sessionId,
+          event: 'test',
+          webhookId,
+          deliveryId,
+          attempt: 1,
+          transport: 'test',
+          statusCode: result.statusCode,
+          durationMs: Date.now() - startedAt,
+          outcome: result.success ? 'delivered' : 'failed',
+          reason: result.success ? undefined : 'HTTP ' + result.statusCode,
+        },
+      );
+      return result;
     } catch (error) {
+      await this.auditService?.recordActivity(AuditAction.WEBHOOK_FAILED, {
+        sessionId,
+        event: 'test',
+        webhookId,
+        deliveryId,
+        attempt: 1,
+        transport: 'test',
+        outcome: 'failed',
+        durationMs: Date.now() - startedAt,
+        reason: redactSsrfError(error),
+      });
       return {
         success: false,
         error: redactSsrfError(error, this.logger, 'webhook test'),
